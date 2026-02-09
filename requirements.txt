@@ -1,0 +1,14 @@
+# Relay - Python Dependencies
+# Install: pip install -r requirements.txt
+
+# HTTP client for API calls (ElevenLabs, OpenAI, etc.)
+requests>=2.31.0
+
+# Microsoft Edge neural TTS voices
+edge-tts>=7.0.0
+
+# Image processing (OCR preprocessing, screenshots)
+Pillow>=10.0.0
+
+# YouTube video downloading
+yt-dlp>=2024.1.0

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(python -c:*)",
+      "Bash(python relay.py:*)",
+      "Bash(systemctl status:*)",
+      "Bash(pgrep:*)",
+      "Bash(for f in /opt/clawd/projects/relay/.queue/*.json)",
+      "Bash(do [ -f \"$f\" ])",
+      "Bash(python3:*)",
+      "Bash(done)",
+      "Bash(for f in 53c60594 79259e1c d0e357d3)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(systemctl restart:*)",
+      "Bash(sudo systemctl restart:*)"
+    ]
+  }
+}
