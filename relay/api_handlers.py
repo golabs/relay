@@ -2334,6 +2334,417 @@ IMPORTANT RULES:
         except Exception as e:
             self.send_json({"success": False, "error": str(e)})
 
+    def handle_git_conflicts(self, data: dict):
+        """POST /api/git/conflicts - Detect and parse merge conflicts in a project."""
+        project = data.get("project", "")
+
+        if not project:
+            self.send_json({"success": False, "error": "No project specified"})
+            return
+
+        project_path = PROJECTS_DIR / project
+        if not project_path.exists():
+            self.send_json({"success": False, "error": "Project not found"})
+            return
+
+        try:
+            # Check if merge is in progress
+            merge_head = project_path / ".git" / "MERGE_HEAD"
+            is_merging = merge_head.exists()
+
+            # Get list of conflicted files using git ls-files -u
+            result = subprocess.run(
+                ["git", "ls-files", "-u"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            conflicted_files = set()
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        conflicted_files.add(parts[1])
+
+            if not conflicted_files:
+                self.send_json({
+                    "success": True,
+                    "has_conflicts": False,
+                    "conflicts": [],
+                    "is_merging": is_merging
+                })
+                return
+
+            # Parse each conflicted file
+            conflicts = []
+            for filepath in conflicted_files:
+                full_path = project_path / filepath
+                if not full_path.exists():
+                    continue
+
+                try:
+                    content = full_path.read_text()
+                    parsed_conflicts = self._parse_conflict_markers(content)
+
+                    # Get the three versions from git index
+                    versions = {}
+                    for stage, name in [(1, 'base'), (2, 'ours'), (3, 'theirs')]:
+                        stage_result = subprocess.run(
+                            ["git", "show", f":{stage}:{filepath}"],
+                            cwd=project_path,
+                            capture_output=True,
+                            text=True,
+                            timeout=10
+                        )
+                        if stage_result.returncode == 0:
+                            versions[name] = stage_result.stdout
+
+                    conflicts.append({
+                        "file": filepath,
+                        "content": content,
+                        "parsed": parsed_conflicts,
+                        "versions": versions,
+                        "conflict_count": len(parsed_conflicts)
+                    })
+                except Exception as e:
+                    conflicts.append({
+                        "file": filepath,
+                        "error": str(e)
+                    })
+
+            self.send_json({
+                "success": True,
+                "has_conflicts": True,
+                "conflicts": conflicts,
+                "is_merging": is_merging,
+                "conflict_count": len(conflicts)
+            })
+
+        except subprocess.TimeoutExpired:
+            self.send_json({"success": False, "error": "Git conflict check timed out"})
+        except Exception as e:
+            self.send_json({"success": False, "error": str(e)})
+
+    def _parse_conflict_markers(self, content: str) -> list:
+        """Parse conflict markers from file content. Supports both merge and diff3 styles."""
+        conflicts = []
+        lines = content.split('\n')
+
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+
+            if line.startswith('<<<<<<<'):
+                start_line = i
+                ours_ref = line[7:].strip()
+                ours_lines = []
+                base_lines = []
+                theirs_lines = []
+                theirs_ref = ""
+                current_section = 'ours'
+                i += 1
+
+                while i < len(lines):
+                    line = lines[i]
+                    if line.startswith('|||||||'):
+                        current_section = 'base'
+                    elif line.startswith('======='):
+                        current_section = 'theirs'
+                    elif line.startswith('>>>>>>>'):
+                        theirs_ref = line[7:].strip()
+                        conflicts.append({
+                            'ours': '\n'.join(ours_lines),
+                            'theirs': '\n'.join(theirs_lines),
+                            'base': '\n'.join(base_lines) if base_lines else None,
+                            'ours_ref': ours_ref,
+                            'theirs_ref': theirs_ref,
+                            'start_line': start_line,
+                            'end_line': i
+                        })
+                        break
+                    else:
+                        if current_section == 'ours':
+                            ours_lines.append(line)
+                        elif current_section == 'base':
+                            base_lines.append(line)
+                        else:
+                            theirs_lines.append(line)
+                    i += 1
+            i += 1
+
+        return conflicts
+
+    def handle_git_resolve_conflict(self, data: dict):
+        """POST /api/git/resolve-conflict - Resolve a conflict in a single file."""
+        project = data.get("project", "")
+        filepath = data.get("file", "")
+        resolution = data.get("resolution", "")  # 'ours', 'theirs', or 'custom'
+        custom_content = data.get("content", "")  # For custom resolution
+
+        if not project:
+            self.send_json({"success": False, "error": "No project specified"})
+            return
+        if not filepath:
+            self.send_json({"success": False, "error": "No file specified"})
+            return
+        if not resolution:
+            self.send_json({"success": False, "error": "No resolution strategy specified"})
+            return
+
+        project_path = PROJECTS_DIR / project
+        if not project_path.exists():
+            self.send_json({"success": False, "error": "Project not found"})
+            return
+
+        full_path = project_path / filepath
+        if not full_path.exists():
+            self.send_json({"success": False, "error": f"File not found: {filepath}"})
+            return
+
+        try:
+            if resolution == 'ours':
+                # Use our version
+                result = subprocess.run(
+                    ["git", "checkout", "--ours", filepath],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    self.send_json({"success": False, "error": f"Failed to checkout ours: {result.stderr}"})
+                    return
+            elif resolution == 'theirs':
+                # Use their version
+                result = subprocess.run(
+                    ["git", "checkout", "--theirs", filepath],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if result.returncode != 0:
+                    self.send_json({"success": False, "error": f"Failed to checkout theirs: {result.stderr}"})
+                    return
+            elif resolution == 'custom':
+                # Write custom resolved content
+                if not custom_content:
+                    self.send_json({"success": False, "error": "Custom content required for custom resolution"})
+                    return
+                full_path.write_text(custom_content)
+            else:
+                self.send_json({"success": False, "error": f"Unknown resolution: {resolution}"})
+                return
+
+            # Stage the resolved file
+            result = subprocess.run(
+                ["git", "add", filepath],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                self.send_json({"success": False, "error": f"Failed to stage file: {result.stderr}"})
+                return
+
+            # Check if there are still conflicts
+            conflicts_result = subprocess.run(
+                ["git", "ls-files", "-u"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            remaining_conflicts = len([l for l in conflicts_result.stdout.strip().split('\n') if l])
+
+            self.send_json({
+                "success": True,
+                "message": f"Resolved conflict in {filepath} using {resolution}",
+                "remaining_conflicts": remaining_conflicts // 3  # Divide by 3 since each file appears 3 times
+            })
+
+        except subprocess.TimeoutExpired:
+            self.send_json({"success": False, "error": "Git resolve timed out"})
+        except Exception as e:
+            self.send_json({"success": False, "error": str(e)})
+
+    def handle_git_ai_resolve(self, data: dict):
+        """POST /api/git/ai-resolve - Use AI to intelligently resolve merge conflicts."""
+        project = data.get("project", "")
+        filepath = data.get("file", "")
+
+        if not project:
+            self.send_json({"success": False, "error": "No project specified"})
+            return
+        if not filepath:
+            self.send_json({"success": False, "error": "No file specified"})
+            return
+
+        project_path = PROJECTS_DIR / project
+        if not project_path.exists():
+            self.send_json({"success": False, "error": "Project not found"})
+            return
+
+        full_path = project_path / filepath
+        if not full_path.exists():
+            self.send_json({"success": False, "error": f"File not found: {filepath}"})
+            return
+
+        try:
+            # Get the three versions
+            versions = {}
+            for stage, name in [(1, 'base'), (2, 'ours'), (3, 'theirs')]:
+                stage_result = subprocess.run(
+                    ["git", "show", f":{stage}:{filepath}"],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                if stage_result.returncode == 0:
+                    versions[name] = stage_result.stdout
+
+            if not versions.get('ours') or not versions.get('theirs'):
+                self.send_json({"success": False, "error": "Could not retrieve conflict versions"})
+                return
+
+            # Build the AI prompt
+            prompt = f"""You are resolving a git merge conflict. Analyze the versions and provide the best merged result.
+
+FILE: {filepath}
+
+=== BASE VERSION (common ancestor) ===
+{versions.get('base', 'Not available')}
+
+=== OURS (current branch - HEAD) ===
+{versions.get('ours', '')}
+
+=== THEIRS (incoming branch) ===
+{versions.get('theirs', '')}
+
+INSTRUCTIONS:
+1. Analyze the intent of both changes
+2. Merge them intelligently, preserving all meaningful changes
+3. If changes conflict semantically, prefer the more recent/complete implementation
+4. Ensure the result is syntactically valid code
+5. Output ONLY the final merged file content, nothing else
+
+MERGED RESULT:"""
+
+            # Call Claude CLI to resolve the conflict
+            result = subprocess.run(
+                ["claude", "-p", prompt, "--output-format", "text"],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            if result.returncode != 0:
+                self.send_json({
+                    "success": False,
+                    "error": f"AI resolution failed: {result.stderr}"
+                })
+                return
+
+            resolved_content = result.stdout.strip()
+
+            # Validate the resolution doesn't have conflict markers
+            if '<<<<<<<' in resolved_content or '=======' in resolved_content or '>>>>>>>' in resolved_content:
+                self.send_json({
+                    "success": False,
+                    "error": "AI resolution still contains conflict markers",
+                    "content": resolved_content
+                })
+                return
+
+            self.send_json({
+                "success": True,
+                "resolved_content": resolved_content,
+                "file": filepath,
+                "message": "AI successfully resolved the conflict. Review and apply if satisfied."
+            })
+
+        except subprocess.TimeoutExpired:
+            self.send_json({"success": False, "error": "AI resolution timed out"})
+        except Exception as e:
+            self.send_json({"success": False, "error": str(e)})
+
+    def handle_git_complete_merge(self, data: dict):
+        """POST /api/git/complete-merge - Complete or abort a merge after resolving conflicts."""
+        project = data.get("project", "")
+        action = data.get("action", "commit")  # 'commit' or 'abort'
+        message = data.get("message", "Merge completed - conflicts resolved")
+
+        if not project:
+            self.send_json({"success": False, "error": "No project specified"})
+            return
+
+        project_path = PROJECTS_DIR / project
+        if not project_path.exists():
+            self.send_json({"success": False, "error": "Project not found"})
+            return
+
+        try:
+            if action == 'abort':
+                # Abort the merge
+                result = subprocess.run(
+                    ["git", "merge", "--abort"],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                if result.returncode != 0:
+                    self.send_json({"success": False, "error": f"Failed to abort merge: {result.stderr}"})
+                    return
+                self.send_json({"success": True, "message": "Merge aborted successfully"})
+                return
+
+            # Check for remaining conflicts
+            conflicts_result = subprocess.run(
+                ["git", "ls-files", "-u"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if conflicts_result.stdout.strip():
+                self.send_json({
+                    "success": False,
+                    "error": "Cannot complete merge - unresolved conflicts remain"
+                })
+                return
+
+            # Commit the merge
+            result = subprocess.run(
+                ["git", "commit", "-m", message],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            if result.returncode != 0:
+                self.send_json({"success": False, "error": f"Failed to commit: {result.stderr}"})
+                return
+
+            self.send_json({
+                "success": True,
+                "message": "Merge completed successfully",
+                "output": result.stdout
+            })
+
+        except subprocess.TimeoutExpired:
+            self.send_json({"success": False, "error": "Git operation timed out"})
+        except Exception as e:
+            self.send_json({"success": False, "error": str(e)})
+
     def handle_git_revert(self, data: dict):
         """POST /api/git/revert - Discard all uncommitted changes (hard reset)."""
         project = data.get("project", "")

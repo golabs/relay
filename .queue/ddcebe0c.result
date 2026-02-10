@@ -1,0 +1,69 @@
+# Multi-Agent Orchestration: Add Logout Button to Header
+
+## Task Analysis
+
+**Original Task:** Add a logout button to the header
+**Mode:** Development
+
+Let me break this down and launch parallel research agents to understand the current header implementation and authentication state.Excellent research. I now understand the full picture:
+
+## Research Summary
+
+| Aspect | Finding |
+|--------|---------|
+| **Header Location** | `relay/templates/index.html` lines 23-83 |
+| **Button Pattern** | `.icon-btn` class, 32x32px, glass morphism styling |
+| **Authentication** | **NONE** - Relay is unauthenticated |
+| **Sessions** | Project-scoped Claude sessions, not user sessions |
+| **"Logout" meaning** | Clear current project session + localStorage state |
+
+Since there's no traditional auth, a "logout" button would clear the current Claude session for the active project, giving a fresh conversation context.
+
+Let me design and implement this:Now I'll implement the logout button. I'll add it after the voice settings button with a separator.Now I need to add the JavaScript handler and API endpoint. Let me first add the backend endpoint to clear the session.I'll add a new "clear-session" action to the existing system reset handler. Let me see more of this function and add the new action:Now let me add the JavaScript handler in app.js:The hook flagged `innerHTML = ''` but that's a safe operation (setting to empty string). Let me adjust to use a safer pattern:Now let me verify the implementation is complete:All components are in place. Let me create a summary:
+
+---
+
+## Orchestration Complete
+
+**Task:** Add logout button to the header
+**Agents Used:** 2 (Research) + 1 (Implementation)
+**Status:** ✅ COMPLETE
+
+### Research Summary
+
+| Component | Finding |
+|-----------|---------|
+| Header Structure | Three-section layout: logo, workflow buttons, controls |
+| Button Pattern | `.icon-btn` class with glass morphism styling |
+| Authentication | None — Relay uses project-scoped Claude sessions |
+| "Logout" Action | Clears session for current project, starts fresh conversation |
+
+### Implementation Summary
+
+| File | Changes |
+|------|---------|
+| `relay/templates/index.html:57` | Added logout button with ⏻ icon and `.danger` styling |
+| `relay/templates/app.js:7774-7827` | Added `confirmLogout()` and `logout()` functions |
+| `relay/api_handlers.py:2409-2424` | Added `clear-session` action to system reset handler |
+
+### What the Logout Button Does
+
+1. **Click** → Confirmation dialog appears
+2. **Confirm** → Clears server-side session from `relay_sessions.json`
+3. **Clears** client localStorage (job ID, project, title)
+4. **Clears** chat pane display
+5. **Refreshes** health indicator
+6. **Next message** → Creates fresh Claude conversation
+
+### Button Location
+
+```
+Header Controls: [📁] [⎇] [◫] [⚙] | [⏻]
+                                    ↑
+                              Logout button
+                              (red/danger style)
+```
+
+### No Further Action Needed
+
+The feature is complete and ready to use. The button appears in the header after the voice settings icon, styled in the danger/red color scheme to indicate it's a destructive action (clearing session state).

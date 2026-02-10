@@ -374,10 +374,14 @@ def cleanup_images(job_id: str):
 def parse_stream_json_status(json_lines: list) -> tuple:
     """Parse stream-json output to extract status and accumulated text.
     Returns: (status_string, accumulated_text)
+
+    Enhanced to provide natural language descriptions for voice capability.
     """
     status = "Thinking..."
     text_parts = []
     current_tool = None
+    active_agents = []  # Track active sub-agents
+    tool_count = 0
 
     for line in json_lines:
         try:
@@ -397,43 +401,106 @@ def parse_stream_json_status(json_lines: list) -> tuple:
                         # Tool being called
                         tool_name = item.get("name", "unknown")
                         tool_input = item.get("input", {})
+                        tool_id = item.get("id", "")[:8]  # Short ID for tracking
                         current_tool = tool_name
+                        tool_count += 1
 
                         if tool_name == "Read":
                             path = tool_input.get("file_path", "file")
-                            status = f"Reading {Path(path).name}"
+                            filename = Path(path).name
+                            status = f"Reading file {filename}"
                         elif tool_name == "Edit":
                             path = tool_input.get("file_path", "file")
-                            status = f"Editing {Path(path).name}"
+                            filename = Path(path).name
+                            status = f"Editing file {filename}"
                         elif tool_name == "Write":
                             path = tool_input.get("file_path", "file")
-                            status = f"Writing {Path(path).name}"
+                            filename = Path(path).name
+                            status = f"Creating file {filename}"
                         elif tool_name == "Bash":
-                            cmd = tool_input.get("command", "")[:40]
-                            status = f"Running: {cmd}"
+                            cmd = tool_input.get("command", "")
+                            desc = tool_input.get("description", "")
+                            if desc:
+                                status = desc[:60]
+                            elif cmd.startswith("git "):
+                                status = f"Running git {cmd.split()[1] if len(cmd.split()) > 1 else 'command'}"
+                            elif cmd.startswith("npm ") or cmd.startswith("yarn "):
+                                status = f"Running {cmd.split()[0]} {cmd.split()[1] if len(cmd.split()) > 1 else ''}"
+                            elif cmd.startswith("python") or cmd.startswith("node"):
+                                status = f"Executing script"
+                            else:
+                                status = f"Running command: {cmd[:50]}"
                         elif tool_name == "Grep":
-                            pattern = tool_input.get("pattern", "")[:30]
-                            status = f"Searching: {pattern}"
+                            pattern = tool_input.get("pattern", "")[:40]
+                            path = tool_input.get("path", "")
+                            if path:
+                                status = f"Searching for '{pattern}' in {Path(path).name}"
+                            else:
+                                status = f"Searching codebase for '{pattern}'"
                         elif tool_name == "Glob":
-                            pattern = tool_input.get("pattern", "")[:30]
-                            status = f"Finding: {pattern}"
+                            pattern = tool_input.get("pattern", "")[:40]
+                            status = f"Finding files matching {pattern}"
                         elif tool_name == "Task":
-                            desc = tool_input.get("description", "")[:30]
-                            status = f"Agent: {desc}" if desc else "Running sub-agent..."
+                            desc = tool_input.get("description", "")
+                            prompt = tool_input.get("prompt", "")[:100]
+                            agent_type = tool_input.get("subagent_type", "general")
+                            agent_id = tool_id
+
+                            # Create natural language description
+                            if agent_type == "Explore":
+                                agent_desc = f"Explorer agent ({agent_id})"
+                            elif agent_type == "Plan":
+                                agent_desc = f"Planning agent ({agent_id})"
+                            elif agent_type == "general-purpose":
+                                agent_desc = f"Research agent ({agent_id})"
+                            else:
+                                agent_desc = f"Agent {agent_id}"
+
+                            if desc:
+                                status = f"{agent_desc}: {desc}"
+                            elif prompt:
+                                # Extract key action from prompt
+                                first_line = prompt.split('\n')[0][:60]
+                                status = f"{agent_desc}: {first_line}"
+                            else:
+                                status = f"Starting {agent_desc}"
+
+                            active_agents.append({"id": agent_id, "type": agent_type, "desc": desc or "working"})
+                        elif tool_name == "TodoWrite":
+                            status = "Updating task checklist"
                         elif tool_name == "WebFetch":
-                            status = "Fetching web page..."
+                            url = tool_input.get("url", "")
+                            if url:
+                                # Extract domain
+                                domain = url.split("//")[-1].split("/")[0][:30]
+                                status = f"Fetching content from {domain}"
+                            else:
+                                status = "Fetching web page"
                         elif tool_name == "WebSearch":
-                            query = tool_input.get("query", "")[:30]
-                            status = f"Web search: {query}"
+                            query = tool_input.get("query", "")[:40]
+                            status = f"Searching the web for '{query}'"
+                        elif tool_name == "AskUserQuestion":
+                            status = "Waiting for your response"
+                        elif tool_name == "EnterPlanMode":
+                            status = "Entering planning mode"
+                        elif tool_name == "ExitPlanMode":
+                            status = "Plan ready for review"
                         else:
-                            status = f"Using {tool_name}..."
+                            status = f"Using {tool_name}"
 
                     elif item_type == "text":
                         text_parts.append(item.get("text", ""))
 
             elif msg_type == "user":
-                # Tool result returned - don't update status, keep showing what we're doing
-                pass
+                # Tool result returned - could update to show progress
+                content = obj.get("message", {}).get("content", [])
+                for item in content:
+                    if item.get("type") == "tool_result":
+                        result_content = item.get("content", "")
+                        # Check if this is an agent completing
+                        if isinstance(result_content, str) and "agentId:" in result_content:
+                            # Agent completed - extract ID
+                            pass  # Keep current status
 
             elif msg_type == "result":
                 status = "Complete"
@@ -444,6 +511,10 @@ def parse_stream_json_status(json_lines: list) -> tuple:
 
         except json.JSONDecodeError:
             continue
+
+    # If we have active agents, mention them in status
+    if active_agents and len(active_agents) > 1:
+        status = f"{len(active_agents)} agents working: {active_agents[-1]['desc'][:30]}"
 
     return status, ''.join(text_parts)
 
@@ -597,6 +668,168 @@ def kill_process_tree(pid):
         logger.warning(f"Error killing process {pid}: {e}")
 
 
+def process_external_api_job(job_id: str, model: str, message: str, project: str,
+                              images: list, stream_file: Path, job_file: Path, job: dict) -> bool:
+    """Process a job using external API (NVIDIA NIM or OpenAI) instead of Claude CLI."""
+    import requests
+    from dotenv import load_dotenv
+
+    # Load environment variables
+    env_path = Path(__file__).parent / ".env"
+    load_dotenv(env_path)
+
+    start_time = time.time()
+    logger.info(f"Processing job {job_id} with external API: {model}")
+
+    # Determine API configuration
+    is_openai = model.startswith("openai/")
+
+    if is_openai:
+        api_key = os.environ.get("OPENAI_API_KEY", "")
+        base_url = "https://api.openai.com/v1"
+        # Map openai/gpt-4o to gpt-4o
+        model_id = model.replace("openai/", "")
+    else:
+        # NVIDIA NIM
+        api_key = os.environ.get("NVIDIA_API_KEY", "")
+        base_url = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+        model_id = model
+
+    if not api_key:
+        error_msg = "API key not configured for " + ("OpenAI" if is_openai else "NVIDIA")
+        job["status"] = "error"
+        job["error"] = error_msg
+        atomic_write_json(job_file, job)
+        logger.error(error_msg)
+        return True
+
+    # Build messages
+    messages = [{"role": "user", "content": message}]
+
+    # Add image support for vision models (if applicable)
+    # Note: Not all NVIDIA models support images
+
+    try:
+        # Update job status
+        job["status"] = "processing"
+        job["activity"] = f"Calling {model_id}..."
+        atomic_write_json(job_file, job)
+        write_heartbeat(job_id, f"Calling {model_id}...")
+
+        # Make streaming API call
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model_id,
+            "messages": messages,
+            "stream": True,
+            "max_tokens": 8192
+        }
+
+        response = requests.post(
+            f"{base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            stream=True,
+            timeout=300  # 5 minute timeout
+        )
+
+        if response.status_code != 200:
+            error_msg = f"API error: {response.status_code} - {response.text[:200]}"
+            job["status"] = "error"
+            job["error"] = error_msg
+            atomic_write_json(job_file, job)
+            logger.error(error_msg)
+            return True
+
+        # Process streaming response
+        full_response = []
+        stream_data = []
+
+        for line in response.iter_lines():
+            if not line:
+                continue
+
+            line_text = line.decode("utf-8")
+            if line_text.startswith("data: "):
+                data_str = line_text[6:]
+                if data_str == "[DONE]":
+                    break
+
+                try:
+                    data = json.loads(data_str)
+                    if "choices" in data and len(data["choices"]) > 0:
+                        delta = data["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            full_response.append(content)
+
+                            # Write stream file for live updates
+                            # Format as stream-json compatible
+                            stream_entry = {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [{"type": "text", "text": content}]
+                                }
+                            }
+                            stream_data.append(json.dumps(stream_entry))
+
+                            # Update stream file
+                            try:
+                                temp_stream = stream_file.with_suffix('.tmp')
+                                with open(temp_stream, "w") as f:
+                                    f.write('\n'.join(stream_data))
+                                os.rename(temp_stream, stream_file)
+                            except Exception as e:
+                                pass
+
+                            # Update activity
+                            elapsed = int(time.time() - start_time)
+                            preview = "".join(full_response)[-50:].replace('\n', ' ')
+                            job["activity"] = f"Generating... ({elapsed}s)"
+                            write_heartbeat(job_id, f"Generating: ...{preview}")
+
+                except json.JSONDecodeError:
+                    continue
+
+        # Complete the job
+        result = "".join(full_response)
+        elapsed = time.time() - start_time
+
+        job["status"] = "complete"
+        job["result"] = result
+        job["completed_at"] = time.time()
+        job["elapsed"] = elapsed
+        job["activity"] = "Complete"
+        atomic_write_json(job_file, job)
+
+        # Write result file
+        result_file = job_file.with_suffix('.result')
+        result_file.write_text(result)
+
+        logger.info(f"Job {job_id} completed via {model} in {elapsed:.1f}s")
+        write_heartbeat(job_id, "Complete")
+
+        return True
+
+    except requests.exceptions.Timeout:
+        job["status"] = "error"
+        job["error"] = "API request timed out"
+        atomic_write_json(job_file, job)
+        logger.error(f"Job {job_id} timed out")
+        return True
+
+    except Exception as e:
+        job["status"] = "error"
+        job["error"] = str(e)
+        atomic_write_json(job_file, job)
+        logger.error(f"Job {job_id} failed: {e}")
+        return True
+
+
 def process_job(job_file: Path) -> bool:
     """Process a single job file with streaming output via PTY.
     Returns True if job was processed, False if skipped.
@@ -673,11 +906,30 @@ def process_job(job_file: Path) -> bool:
         if image_paths:
             logger.info(f"Attached {len(image_paths)} image(s)")
 
-        # Build claude command
+        # Check if this is an external API model (NVIDIA, OpenAI) or Claude CLI
+        is_nvidia_model = model.startswith("nvidia/") or model.startswith("meta/") or \
+                          model.startswith("deepseek-ai/") or model.startswith("qwen/") or \
+                          model.startswith("mistralai/") or model.startswith("microsoft/") or \
+                          model.startswith("google/") or model.startswith("moonshotai/")
+        is_openai_model = model.startswith("openai/")
+
+        if is_nvidia_model or is_openai_model:
+            # Use external API instead of Claude CLI
+            result = process_external_api_job(
+                job_id, model, message, project, images, stream_file, job_file, job
+            )
+            # Mark project as not active anymore
+            mark_project_idle(project)
+            if lock_handle:
+                unlock_file(lock_handle)
+            return result
+
+        # Build claude command (for Claude CLI models)
         model_map = {
             "opus": "claude-opus-4-5-20251101",
             "sonnet": "claude-sonnet-4-20250514",
             "haiku": "claude-3-5-haiku-20241022",
+            "claude": "claude-opus-4-5-20251101",  # Default to Opus for 'claude' selection
         }
         model_id = model_map.get(model, "claude-sonnet-4-20250514")
 

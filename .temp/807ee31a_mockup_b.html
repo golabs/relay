@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RELAY - Clean Nordic Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ========== RESET & VARIABLES ========== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --terracotta: #E07A5F;
+            --sage: #81B29A;
+            --gold: #F2CC8F;
+            --navy: #3D405B;
+            --white: #FFFFFF;
+            --bg: #FAFAF8;
+            --bg-panel: #FFFFFF;
+            --bg-input: #F5F4F0;
+            --bg-hover: #F0EDE8;
+            --text: #3D405B;
+            --text-secondary: #8E8E93;
+            --text-light: #B0AFA8;
+            --border: #E8E6E1;
+            --border-light: #F0EDE8;
+            --shadow-sm: 0 1px 3px rgba(61, 64, 91, 0.04);
+            --shadow-md: 0 4px 12px rgba(61, 64, 91, 0.06);
+            --shadow-lg: 0 8px 30px rgba(61, 64, 91, 0.08);
+            --shadow-lift: 0 12px 40px rgba(61, 64, 91, 0.12);
+            --radius: 14px;
+            --radius-sm: 10px;
+            --radius-xs: 6px;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 400;
+            font-size: 14px;
+            line-height: 1.65;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ========== SCROLLBARS ========== */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; transition: background 0.3s; }
+        *:hover::-webkit-scrollbar-thumb { background: rgba(61, 64, 91, 0.15); }
+        *:hover::-webkit-scrollbar-thumb:hover { background: rgba(61, 64, 91, 0.25); }
+        * { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+        *:hover { scrollbar-color: rgba(61, 64, 91, 0.15) transparent; }
+
+        /* ========== APP SHELL ========== */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            height: 56px;
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            box-shadow: 0 1px 8px rgba(61, 64, 91, 0.04);
+            z-index: 100;
+            flex-shrink: 0;
+            animation: headerSlideDown 0.5s ease-out;
+        }
+
+        @keyframes headerSlideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-logo h1 {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--navy);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .logo-mark {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--terracotta), var(--gold));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(224, 122, 95, 0.25);
+        }
+
+        .logo-mark svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .header-center {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            background: var(--bg-input);
+            border-radius: 24px;
+            padding: 3px;
+        }
+
+        .workflow-btn {
+            padding: 7px 18px;
+            border-radius: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            white-space: nowrap;
+        }
+
+        .workflow-btn:hover {
+            color: var(--navy);
+            background: rgba(61, 64, 91, 0.06);
+        }
+
+        .workflow-btn.active {
+            background: var(--white);
+            color: var(--navy);
+            box-shadow: var(--shadow-sm);
+            font-weight: 500;
+        }
+
+        .workflow-btn.complete {
+            background: var(--sage);
+            color: white;
+            box-shadow: 0 2px 8px rgba(129, 178, 154, 0.3);
+        }
+
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--border);
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .workflow-btn.active .step-num {
+            background: var(--navy);
+            color: white;
+        }
+
+        .workflow-btn.complete .step-num {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .health-indicator {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s;
+            background: rgba(129, 178, 154, 0.08);
+            margin-right: 4px;
+        }
+
+        .health-indicator:hover {
+            background: rgba(129, 178, 154, 0.14);
+        }
+
+        .health-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--sage);
+            box-shadow: 0 0 6px rgba(129, 178, 154, 0.5);
+            animation: healthPulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes healthPulse {
+            0%, 100% { box-shadow: 0 0 4px rgba(129, 178, 154, 0.3); }
+            50% { box-shadow: 0 0 10px rgba(129, 178, 154, 0.6); }
+        }
+
+        .health-text {
+            color: var(--sage);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .project-select {
+            padding: 7px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--text);
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            cursor: pointer;
+            transition: all 0.25s;
+            min-width: 130px;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%238E8E93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+
+        .project-select:hover { border-color: var(--sage); }
+        .project-select:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(129, 178, 154, 0.12); }
+
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--sage);
+            color: var(--navy);
+            transform: scale(1.06);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .icon-btn:active {
+            transform: scale(0.97);
+        }
+
+        .icon-btn.primary {
+            background: var(--terracotta);
+            border-color: var(--terracotta);
+            color: white;
+            box-shadow: 0 2px 10px rgba(224, 122, 95, 0.25);
+        }
+
+        .icon-btn.primary:hover {
+            background: #d46b50;
+            transform: scale(1.08);
+            box-shadow: 0 4px 16px rgba(224, 122, 95, 0.35);
+        }
+
+        /* Icon shapes using SVG inline or Unicode outlines */
+        .icon-file::before { content: ''; display: block; width: 14px; height: 16px; border: 1.5px solid currentColor; border-radius: 2px; position: relative; }
+        .icon-file::after { content: ''; position: absolute; top: 7px; right: 9px; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; }
+
+        /* ========== MAIN LAYOUT ========== */
+        .main {
+            display: flex;
+            flex: 1;
+            gap: 0;
+            overflow: hidden;
+            padding: 12px;
+            background: var(--bg);
+            animation: mainFadeIn 0.6s ease-out 0.2s both;
+        }
+
+        @keyframes mainFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ========== HISTORY SIDEBAR ========== */
+        .history-sidebar {
+            width: 240px;
+            min-width: 240px;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            margin-right: 12px;
+            overflow: hidden;
+            animation: panelSlideIn 0.5s ease-out 0.3s both;
+        }
+
+        @keyframes panelSlideIn {
+            from { opacity: 0; transform: translateX(-16px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .pane-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0;
+        }
+
+        .pane-title {
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--navy);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pane-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: historyItemSlideIn 0.4s ease-out both;
+        }
+
+        .history-item:nth-child(1) { animation-delay: 0.4s; }
+        .history-item:nth-child(2) { animation-delay: 0.5s; }
+        .history-item:nth-child(3) { animation-delay: 0.6s; }
+        .history-item:nth-child(4) { animation-delay: 0.7s; }
+        .history-item:nth-child(5) { animation-delay: 0.8s; }
+        .history-item:nth-child(6) { animation-delay: 0.9s; }
+        .history-item:nth-child(7) { animation-delay: 1.0s; }
+        .history-item:nth-child(8) { animation-delay: 1.1s; }
+
+        @keyframes historyItemSlideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .history-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--border);
+        }
+
+        .history-item.selected {
+            background: rgba(129, 178, 154, 0.08);
+            border-color: var(--sage);
+        }
+
+        .history-item-time {
+            font-size: 11px;
+            color: var(--text-light);
+            font-weight: 400;
+            margin-bottom: 3px;
+        }
+
+        .history-item-preview {
+            font-size: 13px;
+            font-weight: 400;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
+        }
+
+        .history-count {
+            font-size: 11px;
+            color: var(--text-light);
+            padding: 10px 16px;
+            border-top: 1px solid var(--border-light);
+            font-weight: 400;
+        }
+
+        /* ========== PANEL BASE ========== */
+        .pane {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: box-shadow 0.35s ease;
+        }
+
+        .pane:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        .pane-content {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* ========== AXION PANEL ========== */
+        .response-pane {
+            margin-right: 12px;
+            position: relative;
+            animation: panelFadeUp 0.5s ease-out 0.35s both;
+        }
+
+        @keyframes panelFadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Decorative SVG blob behind AXION panel content */
+        .pane-content::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -60px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(ellipse, rgba(129, 178, 154, 0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Decorative wave at bottom of AXION */
+        .axion-wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .axion-wave svg {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+        }
+
+        /* ========== LIVE ACTIVITY BOX ========== */
+        .live-activity-box {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            animation: liveBoxFadeIn 0.6s ease-out 0.5s both;
+        }
+
+        @keyframes liveBoxFadeIn {
+            from { opacity: 0; transform: scale(0.97); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .live-activity-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 16px;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 12px;
+            color: var(--navy);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--sage);
+            animation: livePulse 2s ease-in-out infinite;
+            box-shadow: 0 0 6px rgba(129, 178, 154, 0.4);
+        }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(129, 178, 154, 0.3); }
+            50% { opacity: 0.5; box-shadow: 0 0 12px rgba(129, 178, 154, 0.6); }
+        }
+
+        .live-status {
+            color: var(--text-light);
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .live-activity-content {
+            padding: 16px;
+            font-size: 13px;
+            line-height: 1.65;
+            color: var(--text);
+            position: relative;
+            z-index: 1;
+        }
+
+        .live-activity-content code {
+            background: var(--bg-input);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            color: var(--terracotta);
+        }
+
+        /* ========== VOICE VISUALIZER ========== */
+        .live-voice-visualizer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 14px 16px;
+            border-top: 1px solid var(--border-light);
+            background: var(--bg-input);
+        }
+
+        .voice-bar {
+            width: 3px;
+            border-radius: 3px;
+            background: var(--sage);
+            opacity: 0.6;
+            animation: voiceWave 1.2s ease-in-out infinite;
+        }
+
+        .voice-bar:nth-child(1) { height: 10px; animation-delay: 0s; }
+        .voice-bar:nth-child(2) { height: 18px; animation-delay: 0.15s; }
+        .voice-bar:nth-child(3) { height: 24px; animation-delay: 0.3s; }
+        .voice-bar:nth-child(4) { height: 16px; animation-delay: 0.45s; }
+        .voice-bar:nth-child(5) { height: 20px; animation-delay: 0.6s; }
+        .voice-bar:nth-child(6) { height: 12px; animation-delay: 0.75s; }
+        .voice-bar:nth-child(7) { height: 8px; animation-delay: 0.9s; }
+
+        @keyframes voiceWave {
+            0%, 100% { transform: scaleY(0.4); opacity: 0.35; }
+            50% { transform: scaleY(1); opacity: 0.8; }
+        }
+
+        /* ========== RESPONSE AREA ========== */
+        .response-area {
+            font-size: 14px;
+            line-height: 1.65;
+            color: var(--text);
+            position: relative;
+            z-index: 1;
+        }
+
+        .message-entry {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-light);
+            animation: messageFadeIn 0.4s ease-out both;
+        }
+
+        @keyframes messageFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: var(--text-light);
+            font-weight: 400;
+        }
+
+        .message-user {
+            color: var(--navy);
+            font-weight: 500;
+            margin-bottom: 8px;
+            padding: 8px 14px;
+            background: rgba(61, 64, 91, 0.04);
+            border-radius: var(--radius-xs);
+            font-size: 13px;
+            border-left: 3px solid var(--terracotta);
+        }
+
+        .message-assistant {
+            padding: 4px 0;
+            font-weight: 300;
+        }
+
+        .message-assistant p {
+            margin-bottom: 10px;
+        }
+
+        .message-assistant code {
+            background: var(--bg-input);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12.5px;
+            color: var(--terracotta);
+        }
+
+        .message-assistant pre {
+            background: var(--navy);
+            color: #E0DDD5;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            overflow-x: auto;
+            margin: 12px 0;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12.5px;
+            line-height: 1.6;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .message-assistant pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        .message-assistant strong {
+            font-weight: 500;
+            color: var(--navy);
+        }
+
+        .message-assistant ul, .message-assistant ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .message-assistant li {
+            margin-bottom: 4px;
+        }
+
+        /* ========== BRETT / INPUT PANEL ========== */
+        .input-pane {
+            animation: panelFadeUp 0.5s ease-out 0.45s both;
+        }
+
+        .pane-content.input-content {
+            padding: 0;
+            position: relative;
+        }
+
+        /* Decorative blob for Brett panel */
+        .input-pane .pane-content::before {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            left: -40px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(ellipse, rgba(224, 122, 95, 0.05) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+
+        .line-numbers {
+            width: 40px;
+            min-width: 40px;
+            padding: 20px 10px 20px 6px;
+            text-align: right;
+            color: var(--text-light);
+            font-size: 12px;
+            line-height: 1.65;
+            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            user-select: none;
+            border-right: 1px solid var(--border-light);
+            overflow: hidden;
+            white-space: pre-line;
+            background: var(--bg-input);
+        }
+
+        .input-area {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.65;
+            resize: none;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 300;
+            padding: 20px 16px;
+        }
+
+        .input-area::placeholder {
+            color: var(--text-light);
+            font-weight: 300;
+        }
+
+        /* ========== QUEUE PANEL ========== */
+        .queue-panel {
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 24px;
+            display: none;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .queue-panel.visible { display: block; }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .queue-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--navy);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .queue-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .queue-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: var(--bg-input);
+            border-radius: var(--radius-xs);
+            border-left: 3px solid var(--border);
+            font-size: 13px;
+            transition: all 0.25s;
+        }
+
+        .queue-item.processing {
+            border-left-color: var(--sage);
+            background: rgba(129, 178, 154, 0.06);
+        }
+
+        .queue-item-number {
+            min-width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .queue-item.processing .queue-item-number {
+            background: var(--sage);
+            color: white;
+        }
+
+        .queue-item-text {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 300;
+        }
+
+        .queue-item-status {
+            font-size: 11px;
+            color: var(--text-light);
+            font-weight: 400;
+        }
+
+        /* ========== BUTTONS ========== */
+        .btn {
+            padding: 7px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--text);
+            cursor: pointer;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--text-light);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn:active { transform: translateY(0); }
+
+        .btn.primary { border-color: var(--sage); color: var(--sage); }
+        .btn.primary:hover { background: var(--sage); color: white; box-shadow: 0 2px 10px rgba(129, 178, 154, 0.25); }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+            border-radius: 6px;
+        }
+
+        .btn-clear {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-light);
+            font-size: 13px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-clear:hover { color: var(--terracotta); background: rgba(224, 122, 95, 0.06); }
+
+        /* ========== ACK BANNER ========== */
+        .ack-banner {
+            padding: 10px 24px;
+            background: rgba(129, 178, 154, 0.06);
+            border-bottom: 1px solid rgba(129, 178, 154, 0.15);
+            font-size: 13px;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--sage);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .ack-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--sage);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ========== MODALS ========== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(61, 64, 91, 0.3);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            padding: 40px;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: modalFadeIn 0.25s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            max-width: 480px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+            animation: modalScaleIn 0.3s ease-out;
+        }
+
+        @keyframes modalScaleIn {
+            from { opacity: 0; transform: scale(0.96) translateY(8px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-weight: 500;
+            font-size: 16px;
+            color: var(--navy);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover { color: var(--terracotta); }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        /* ========== KEYBOARD SHORTCUTS ========== */
+        .shortcuts-hint {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 8px 14px;
+            font-size: 11px;
+            color: var(--text-light);
+            z-index: 100;
+            box-shadow: var(--shadow-sm);
+            animation: hintFadeIn 0.5s ease-out 1.5s both;
+        }
+
+        @keyframes hintFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 0.7; transform: translateY(0); }
+        }
+
+        .shortcuts-hint:hover { opacity: 1 !important; }
+
+        .shortcuts-hint kbd {
+            background: var(--bg-input);
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 10px;
+            font-weight: 500;
+        }
+
+        /* ========== DECORATIVE ELEMENTS ========== */
+        .deco-blob-1 {
+            position: absolute;
+            top: 60px;
+            right: -30px;
+            width: 180px;
+            height: 180px;
+            opacity: 0.5;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .deco-blob-2 {
+            position: absolute;
+            bottom: 20px;
+            left: -20px;
+            width: 140px;
+            height: 140px;
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .deco-gradient {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: linear-gradient(to top, rgba(129, 178, 154, 0.03), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ========== VOICE DOTS ========== */
+        .voice-dots {
+            display: inline-flex;
+            gap: 3px;
+            margin-left: 8px;
+        }
+
+        .voice-dots .dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--sage);
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .voice-dots.active .dot { opacity: 1; }
+        .voice-dots.active .dot:nth-child(1) { animation: dotPulse 1s 0s infinite; }
+        .voice-dots.active .dot:nth-child(2) { animation: dotPulse 1s 0.15s infinite; }
+        .voice-dots.active .dot:nth-child(3) { animation: dotPulse 1s 0.3s infinite; }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* ========== SUBTLE HEADER ICON STYLE ========== */
+        .header-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* ========== SCROLL TO BOTTOM ========== */
+        .scroll-to-bottom-btn {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            box-shadow: var(--shadow-md);
+            transition: all 0.25s;
+            z-index: 50;
+            display: none;
+        }
+
+        .scroll-to-bottom-btn:hover {
+            transform: translateX(-50%) scale(1.05);
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* ========== TAGS/BADGES ========== */
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        .tag-sage { background: rgba(129, 178, 154, 0.12); color: var(--sage); }
+        .tag-terracotta { background: rgba(224, 122, 95, 0.10); color: var(--terracotta); }
+        .tag-gold { background: rgba(242, 204, 143, 0.20); color: #B8963A; }
+        .tag-navy { background: rgba(61, 64, 91, 0.08); color: var(--navy); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- ========== HEADER ========== -->
+        <div class="header">
+            <div class="header-logo">
+                <div class="logo-mark">
+                    <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 7h10M7 2v10M4 4l6 6M10 4l-6 6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <h1>Relay</h1>
+            </div>
+
+            <div class="header-center">
+                <button class="workflow-btn complete" title="Review task structure">
+                    <span class="step-num">1</span> Review Task
+                </button>
+                <button class="workflow-btn active" title="Analyze and create plan">
+                    <span class="step-num">2</span> Explain
+                </button>
+                <button class="workflow-btn" title="Execute implementation">
+                    <span class="step-num">3</span> Implement
+                </button>
+            </div>
+
+            <div class="header-controls">
+                <div class="health-indicator" title="System healthy">
+                    <div class="health-dot"></div>
+                    <span class="health-text">Healthy</span>
+                </div>
+
+                <select class="project-select">
+                    <option>relay-app</option>
+                    <option>auth-service</option>
+                    <option>dashboard-ui</option>
+                </select>
+
+                <button class="icon-btn header-icon" title="File Browser">
+                    <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                </button>
+                <button class="icon-btn header-icon" title="Git Operations">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="18" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="18" cy="12" r="2"/><path d="M12 8v8M14 6h2a2 2 0 012 2v2"/></svg>
+                </button>
+                <button class="icon-btn header-icon" title="Display Settings">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                </button>
+                <button class="icon-btn header-icon" title="Voice Settings">
+                    <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z"/><path d="M19 11a7 7 0 01-14 0"/><path d="M12 18v4M8 22h8"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========== ACK BANNER ========== -->
+        <div class="ack-banner">
+            <div class="ack-spinner"></div>
+            <span>Analyzing codebase structure -- reviewing 14 files...</span>
+        </div>
+
+        <!-- ========== QUEUE PANEL ========== -->
+        <div class="queue-panel visible">
+            <div class="queue-header">
+                <span class="queue-title">Message Queue (2)</span>
+                <button class="btn-sm btn-clear">Clear All</button>
+            </div>
+            <div class="queue-list">
+                <div class="queue-item processing">
+                    <div class="queue-item-number">1</div>
+                    <span class="queue-item-text">Refactor the authentication middleware to use JWT tokens</span>
+                    <span class="queue-item-status">Processing...</span>
+                </div>
+                <div class="queue-item">
+                    <div class="queue-item-number">2</div>
+                    <span class="queue-item-text">Add unit tests for the user registration flow</span>
+                    <span class="queue-item-status">Pending</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== MAIN LAYOUT ========== -->
+        <main class="main">
+            <!-- History Sidebar -->
+            <div class="history-sidebar">
+                <div class="pane-header">
+                    <div class="pane-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        History
+                    </div>
+                    <div class="pane-controls">
+                        <button class="btn-clear" title="Collapse">&lsaquo;</button>
+                    </div>
+                </div>
+                <div class="history-list">
+                    <div class="history-item selected">
+                        <div class="history-item-time">Today, 2:34 PM</div>
+                        <div class="history-item-preview">Refactor auth middleware</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Today, 1:12 PM</div>
+                        <div class="history-item-preview">Fix CORS headers in API</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Today, 11:45 AM</div>
+                        <div class="history-item-preview">Add WebSocket reconnection</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Today, 10:20 AM</div>
+                        <div class="history-item-preview">Database migration script</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Yesterday, 4:50 PM</div>
+                        <div class="history-item-preview">Optimize React re-renders</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Yesterday, 2:15 PM</div>
+                        <div class="history-item-preview">Setup CI/CD pipeline</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Yesterday, 11:30 AM</div>
+                        <div class="history-item-preview">Implement rate limiting</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-item-time">Jan 28, 3:22 PM</div>
+                        <div class="history-item-preview">Docker compose setup</div>
+                    </div>
+                </div>
+                <div class="history-count">8 conversations</div>
+            </div>
+
+            <!-- AXION Panel - Responses -->
+            <div class="pane response-pane" style="flex: 1.4;">
+                <div class="pane-header">
+                    <div class="pane-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Axion
+                        <span class="tag tag-sage">AI</span>
+                    </div>
+                    <div class="pane-controls">
+                        <button class="icon-btn header-icon" title="Auto-read responses" style="opacity: 0.5;">
+                            <svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Read aloud">
+                            <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Screenshots">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Clear" style="color: var(--terracotta);">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="pane-content" style="position: relative;">
+                    <!-- Decorative SVG blob -->
+                    <svg class="deco-blob-1" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="rgba(129, 178, 154, 0.07)" d="M44.5,-76.3C56.9,-69.1,65.8,-55.5,73.2,-41.3C80.6,-27.1,86.5,-12.3,85.1,1.4C83.8,15.1,75.2,27.8,65.8,39.5C56.4,51.2,46.2,61.9,33.8,69.2C21.4,76.5,6.8,80.4,-7.5,79.9C-21.8,79.4,-35.8,74.5,-47.8,66.3C-59.8,58.1,-69.8,46.6,-76.1,33.2C-82.4,19.8,-85,4.5,-82.7,-9.8C-80.4,-24.1,-73.2,-37.4,-62.8,-47.4C-52.4,-57.4,-38.8,-64.1,-25.3,-70.5C-11.8,-76.9,1.6,-83,14.8,-81.5C28,-80,32.1,-83.5,44.5,-76.3Z" transform="translate(100 100)"/>
+                    </svg>
+
+                    <!-- Live Activity Box -->
+                    <div class="live-activity-box">
+                        <div class="live-activity-header">
+                            <div class="live-indicator">
+                                <div class="live-dot"></div>
+                                LIVE
+                            </div>
+                            <span class="live-status">Analyzing auth middleware...</span>
+                        </div>
+                        <div class="live-activity-content">
+                            Looking at the current <code>authMiddleware.js</code> implementation. The existing session-based approach creates unnecessary server state. I'll refactor this to use stateless JWT tokens with proper refresh token rotation...
+                        </div>
+                        <div class="live-voice-visualizer">
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Response Area - Past Messages -->
+                    <div class="response-area">
+                        <div class="message-entry">
+                            <div class="message-header">
+                                <span class="tag tag-terracotta">You</span>
+                                <span class="message-time">Today, 1:12 PM</span>
+                            </div>
+                            <div class="message-user">
+                                The API is throwing CORS errors when the frontend makes requests from localhost:3000. Can you fix the CORS configuration?
+                            </div>
+                            <div class="message-assistant">
+                                <p>I found the issue. Your Express CORS middleware is missing the <code>credentials</code> option and the origin whitelist is too restrictive. Here's the fix:</p>
+                                <pre><code>// server.js - Updated CORS configuration
+const cors = require('cors');
+
+const corsOptions = {
+  origin: ['http://localhost:3000', 'https://app.relay.dev'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['X-Request-Id'],
+  maxAge: 86400
+};
+
+app.use(cors(corsOptions));</code></pre>
+                                <p><strong>Changes made:</strong></p>
+                                <ul>
+                                    <li>Added <code>credentials: true</code> to allow cookies and auth headers</li>
+                                    <li>Expanded the origin whitelist to include your dev server</li>
+                                    <li>Added <code>exposedHeaders</code> for the request tracking header</li>
+                                    <li>Set <code>maxAge</code> to cache preflight responses for 24 hours</li>
+                                </ul>
+                                <p>The preflight requests should now resolve correctly. Restart your server to apply the changes.</p>
+                            </div>
+                        </div>
+
+                        <div class="message-entry">
+                            <div class="message-header">
+                                <span class="tag tag-terracotta">You</span>
+                                <span class="message-time">Today, 11:45 AM</span>
+                            </div>
+                            <div class="message-user">
+                                The WebSocket connection drops after about 30 seconds of inactivity. Add automatic reconnection with exponential backoff.
+                            </div>
+                            <div class="message-assistant">
+                                <p>I've implemented a robust WebSocket reconnection system with exponential backoff and jitter. Here are the key components:</p>
+                                <pre><code>class ReconnectingWebSocket {
+  constructor(url, options = {}) {
+    this.url = url;
+    this.maxRetries = options.maxRetries || 10;
+    this.baseDelay = options.baseDelay || 1000;
+    this.maxDelay = options.maxDelay || 30000;
+    this.retryCount = 0;
+    this.connect();
+  }
+
+  connect() {
+    this.ws = new WebSocket(this.url);
+    this.ws.onclose = () => this.scheduleReconnect();
+    this.ws.onopen = () => { this.retryCount = 0; };
+  }
+
+  scheduleReconnect() {
+    if (this.retryCount >= this.maxRetries) return;
+    const delay = Math.min(
+      this.baseDelay * Math.pow(2, this.retryCount)
+        + Math.random() * 1000,
+      this.maxDelay
+    );
+    this.retryCount++;
+    setTimeout(() => this.connect(), delay);
+  }
+}</code></pre>
+                                <p>The backoff starts at 1 second and doubles each attempt, capping at 30 seconds. Random jitter prevents thundering herd issues when the server recovers.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Decorative wave -->
+                    <div class="deco-gradient"></div>
+                </div>
+            </div>
+
+            <!-- BRETT Panel - Input -->
+            <div class="pane input-pane" style="flex: 0.8;">
+                <div class="pane-header">
+                    <div class="pane-title">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--terracotta)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                        Brett
+                        <span class="tag tag-terracotta">You</span>
+                        <div class="voice-dots active">
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                        </div>
+                    </div>
+                    <div class="pane-controls">
+                        <button class="icon-btn header-icon" title="Copy text">
+                            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Clear text" style="color: var(--terracotta);">
+                            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Voice input">
+                            <svg viewBox="0 0 24 24"><path d="M12 1a4 4 0 00-4 4v6a4 4 0 008 0V5a4 4 0 00-4-4z"/><path d="M19 11a7 7 0 01-14 0"/><path d="M12 18v4M8 22h8"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Read aloud">
+                            <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Format text">
+                            <svg viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+                        </button>
+                        <button class="icon-btn header-icon" title="Design Mockup">
+                            <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M17.5 23l-2-7h-8l-2 7"/><circle cx="12" cy="12" r="10"/></svg>
+                        </button>
+                        <button class="icon-btn primary header-icon" title="Send message">
+                            <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="pane-content input-content">
+                    <div class="input-wrapper">
+                        <div class="line-numbers">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14</div>
+                        <textarea class="input-area" placeholder="Type your message... (Ctrl+Enter to send)">Now refactor the authentication middleware to use
+JWT tokens instead of session-based auth.
+
+Requirements:
+- Use RS256 signing algorithm
+- Access tokens expire in 15 minutes
+- Refresh tokens expire in 7 days
+- Store refresh tokens in httpOnly cookies
+- Add token rotation on refresh
+- Include rate limiting on the refresh endpoint
+
+Make sure to update the existing routes that
+depend on req.session to use the new JWT payload.</textarea>
+                    </div>
+
+                    <!-- Decorative blob -->
+                    <svg class="deco-blob-2" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="rgba(224, 122, 95, 0.05)" d="M39.5,-65.3C50.9,-58.5,59.6,-46.8,66.2,-34C72.8,-21.2,77.3,-7.3,76.1,6.1C74.9,19.5,68,32.4,58.6,42.6C49.2,52.8,37.3,60.3,24.3,65.5C11.3,70.7,-2.8,73.6,-16.5,71.8C-30.2,70,-43.5,63.5,-53.2,53.5C-62.9,43.5,-69,30,-72.1,15.7C-75.2,1.4,-75.3,-13.7,-70.3,-26.9C-65.3,-40.1,-55.2,-51.4,-43.1,-57.9C-31,-64.4,-16.9,-66.1,-1.5,-63.7C13.9,-61.3,28.1,-72.1,39.5,-65.3Z" transform="translate(100 100)"/>
+                    </svg>
+                </div>
+            </div>
+        </main>
+
+        <!-- Keyboard shortcuts hint -->
+        <div class="shortcuts-hint">
+            <kbd>Ctrl</kbd>+<kbd>Enter</kbd> Send &nbsp;|&nbsp; <kbd>Esc</kbd> Close &nbsp;|&nbsp; <kbd>Ctrl</kbd>+<kbd>/</kbd> Sidebar
+        </div>
+
+        <!-- ========== RESET MODAL (hidden) ========== -->
+        <div class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>System Controls</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-secondary); font-size: 13px;">Reset options would appear here.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

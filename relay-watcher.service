@@ -1,0 +1,17 @@
+[Unit]
+Description=Relay Watcher Service - Claude Code CLI Bridge
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/clawd/projects/relay/watcher.py
+WorkingDirectory=/opt/clawd/projects/relay
+Restart=always
+RestartSec=5
+User=axion
+Environment=HOME=/home/axion
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

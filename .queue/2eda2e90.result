@@ -1,0 +1,99 @@
+Interesting request. Let me investigate what theming currently exists - Relay appears to be a dark-themed app already.Excellent research. Now I understand the situation clearly.
+
+---
+
+## Analysis: Dark Mode Toggle Request
+
+### Current State
+
+Relay is **already a dark-themed app** with a cyberpunk "Aurora" aesthetic. There is:
+- ✅ Well-structured CSS variables (50+ color variables)
+- ❌ No light theme defined
+- ❌ No theme toggle functionality
+- ❌ No `prefers-color-scheme` support
+
+### What "Dark Mode Toggle" Actually Means Here
+
+Since the app is already dark, you're asking for a **Light Mode** option. This would require:
+
+| Component | Effort | Description |
+|-----------|--------|-------------|
+| Light theme CSS variables | Medium | Define ~40 color overrides for light backgrounds |
+| Theme toggle UI | Easy | Add toggle to settings page |
+| Theme persistence | Easy | localStorage + apply on load |
+| Mermaid.js theme | Medium | Dynamic theme switching for diagrams |
+| Highlight.js theme | Medium | Swap syntax highlighting CSS |
+
+### My Recommendation
+
+Before I design this fully, let me ask:Since you didn't respond to the clarification, I'll proceed with the **most useful option**: a full light mode toggle with proper theming. Let me design the implementation plan:---
+
+## Orchestration Complete: Dark/Light Mode Toggle Design
+
+**Task:** Add a dark mode toggle to the settings page
+**Mode:** Plan
+**Agents Used:** 2 (Researcher + Architect)
+**Status:** ✅ DESIGN COMPLETE
+
+---
+
+## Summary
+
+Since Relay is **already dark-themed**, this is actually a **Light Mode Toggle**. The design adds three options:
+
+| Option | Description |
+|--------|-------------|
+| 🌙 **Dark** | Current cyberpunk Aurora theme (default) |
+| ☀️ **Light** | New light theme with inverted colors |
+| 💻 **System** | Follow OS preference (`prefers-color-scheme`) |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│ <html data-theme="light">  ←── CSS selector target  │
+├─────────────────────────────────────────────────────┤
+│ :root { --bg: #0a0a1a; }       ←── Dark (default)   │
+│ [data-theme="light"] { --bg: #f5f7fa; }  ←── Light  │
+├─────────────────────────────────────────────────────┤
+│ localStorage.chatRelayTheme = "dark|light|system"   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Files to Change
+
+| File | Changes |
+|------|---------|
+| `styles.css` | Add ~80 lines of `[data-theme="light"]` CSS overrides |
+| `index.html` | Add inline flash-prevention script, theme toggle UI, ID on highlight.js link |
+| `app.js` | Add theme functions (`applyTheme`, `updateMermaidTheme`, `updateHighlightTheme`) |
+
+### Key Features
+
+- **No flash on load** - Inline script applies theme before CSS renders
+- **System preference support** - Listens for OS dark/light changes
+- **Mermaid diagram theming** - Dynamically updates diagram colors
+- **Syntax highlighting** - Swaps between github-dark and github CSS
+
+### Toggle Location
+
+Added to the **Display Settings modal** (accessed via ◫ button in header):
+
+```
+┌─────────────────────────────────┐
+│ Display Settings            ✕  │
+├─────────────────────────────────┤
+│ Theme:                          │
+│ [🌙 Dark] [☀️ Light] [💻 System]│  ← NEW
+├─────────────────────────────────┤
+│ AXION Font Size: 14px           │
+│ ───────────●────────            │
+│ ...                             │
+└─────────────────────────────────┘
+```
+
+---
+
+### Next Steps
+
+Would you like me to **implement this design**? I can execute it now - it touches 3 files with well-defined changes.

@@ -1,0 +1,42 @@
+Interesting request. Let me check what theming system exists and whether there's even a "light mode" to toggle from - Relay appears to already be dark-themed.## Orchestration Complete: Dark Mode Toggle Analysis
+
+**Task:** Add dark mode toggle to settings
+**Mode:** Plan
+**Status:** ✅ ANALYSIS COMPLETE
+
+---
+
+### Current State
+
+Relay is **already dark themed** (cyberpunk/Aurora aesthetic). There is no light mode - so this would actually be adding a **Light Mode Toggle**.
+
+| Aspect | Status |
+|--------|--------|
+| CSS Variables | ✅ 60+ defined in `:root` - good foundation |
+| Hardcoded Colors | ⚠️ ~50-60% of styles use hardcoded rgba values |
+| Theme Toggle Logic | ❌ None exists |
+| External Libraries | ⚠️ Highlight.js + Mermaid are dark-only |
+
+---
+
+### Implementation OptionsSince you asked for a settings page toggle, I'll proceed with the **Quick Toggle** approach - add a working toggle to the settings that swaps CSS variables. This gives you a functional light mode without the extensive refactoring.
+
+### Implementation Plan
+
+**Changes Required:**
+
+| File | Change |
+|------|--------|
+| `styles.css` | Add `:root.light-theme` with inverted color variables (~40 lines) |
+| `index.html` | Add toggle in Display Settings modal (or create User Settings if implementing that plan) |
+| `app.js` | Add `toggleTheme()`, save to localStorage, apply on load (~30 lines) |
+
+**Toggle Location:** Since there's no unified User Settings page yet, I'll add it to the existing Display Settings modal.
+
+**What the toggle will do:**
+- Add class `light-theme` to `<html>` element
+- Swap `--bg`, `--text`, `--accent`, `--border` variables
+- Save preference to `localStorage.chatRelayTheme`
+- Auto-apply on page load
+
+Would you like me to implement this quick toggle now?

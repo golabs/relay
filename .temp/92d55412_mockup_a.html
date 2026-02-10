@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C&C Dashboard - Variation A: Command Centre</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VARIATION A: "Command Centre" - Full military HUD aesthetic
+   Horizontal top nav, dark tactical green-black base,
+   red scan-line accents, monospace data readouts
+   ============================================================ */
+
+:root {
+  --bg-base: #080c0f;
+  --bg-panel: #0c1117;
+  --bg-card: #111820;
+  --bg-card-hover: #151e28;
+  --border: #1e2a36;
+  --border-accent: #2a3a4a;
+  --text-primary: #c8d6e5;
+  --text-secondary: #6b7f94;
+  --text-muted: #3d4f63;
+  --red: #e63946;
+  --red-dim: rgba(230, 57, 70, 0.12);
+  --red-glow: rgba(230, 57, 70, 0.3);
+  --amber: #f0a500;
+  --amber-dim: rgba(240, 165, 0, 0.12);
+  --green: #00d68f;
+  --green-dim: rgba(0, 214, 143, 0.12);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59, 130, 246, 0.1);
+  --radius: 8px;
+  --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-family: 'Inter', -apple-system, sans-serif; font-size: 14px; }
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+}
+
+/* Top Navigation Bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--red) 20%, var(--red) 80%, transparent);
+  opacity: 0.4;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 40px;
+}
+.brand-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--red), #b52d38);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 12px; color: #fff;
+  letter-spacing: 0.5px;
+}
+.brand-label {
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.brand-sub {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.nav-links {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms;
+  text-decoration: none;
+  position: relative;
+}
+.nav-link:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+.nav-link.active {
+  color: var(--red);
+  background: var(--red-dim);
+  font-weight: 600;
+}
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -10px; left: 50%;
+  transform: translateX(-50%);
+  width: 20px; height: 2px;
+  background: var(--red);
+  border-radius: 1px;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.status-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--green-dim);
+  color: var(--green);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.status-chip .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.user-badge {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--red-dim);
+  border: 1px solid var(--border-accent);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--red);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+/* Main Content */
+.main {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.section-header .subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.timestamp {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* Metric Cards - HUD Style */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 200ms;
+}
+.metric-card:hover { border-color: var(--border-accent); }
+.metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+}
+.metric-card.red::before { background: var(--red); }
+.metric-card.amber::before { background: var(--amber); }
+.metric-card.green::before { background: var(--green); }
+.metric-card.blue::before { background: var(--blue); }
+.metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.metric-value {
+  font-family: var(--mono);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.metric-value.red { color: var(--red); }
+.metric-value.amber { color: var(--amber); }
+.metric-value.green { color: var(--green); }
+.metric-value.blue { color: var(--blue); }
+.metric-value.white { color: var(--text-primary); }
+.metric-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.metric-badge {
+  position: absolute;
+  top: 12px; right: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.metric-badge.live { background: var(--green-dim); color: var(--green); }
+.metric-badge.warning { background: var(--amber-dim); color: var(--amber); }
+.metric-badge.alert { background: var(--red-dim); color: var(--red); }
+
+/* Grid Layout */
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color 200ms;
+}
+.card:hover { border-color: var(--border-accent); }
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+/* Chart Containers */
+.chart-area {
+  width: 100%;
+  height: 140px;
+}
+.chart-area svg { width: 100%; height: 100%; }
+
+/* Progress Bars */
+.compliance-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.compliance-row:last-child { margin-bottom: 0; }
+.compliance-name {
+  width: 110px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 600ms ease;
+}
+.progress-fill.green { background: var(--green); }
+.progress-fill.amber { background: var(--amber); }
+.compliance-pct {
+  width: 40px;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.compliance-pct.green { color: var(--green); }
+.compliance-pct.amber { color: var(--amber); }
+
+/* App Health Row */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.app-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all 150ms;
+}
+.app-tile:hover { background: rgba(255,255,255,0.04); border-color: var(--border-accent); }
+.app-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.app-dot.healthy { background: var(--green); box-shadow: 0 0 8px rgba(0,214,143,0.4); }
+.app-dot.warning { background: var(--amber); box-shadow: 0 0 8px rgba(240,165,0,0.4); }
+.app-dot.offline { background: var(--text-muted); }
+.app-name { font-size: 13px; font-weight: 600; }
+.app-meta { font-size: 11px; color: var(--text-secondary); }
+
+/* Activity Feed */
+.feed-list { display: flex; flex-direction: column; gap: 0; }
+.feed-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.feed-entry:last-child { border-bottom: none; }
+.feed-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 42px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.feed-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.feed-body strong { color: var(--red); font-weight: 600; }
+
+/* Agent Table */
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.03);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+tbody tr { border-bottom: 1px solid rgba(255,255,255,0.02); transition: background 150ms; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody td { padding: 10px 16px; font-size: 13px; }
+.badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.badge.active { background: var(--green-dim); color: var(--green); }
+.badge.idle { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+.badge.error { background: var(--red-dim); color: var(--red); }
+.badge.secops { background: var(--red-dim); color: var(--red); }
+.badge.compliance { background: var(--blue-dim); color: var(--blue); }
+.badge.prodops { background: var(--amber-dim); color: var(--amber); }
+.badge.qa { background: var(--green-dim); color: var(--green); }
+.agent-id { font-family: var(--mono); font-size: 12px; color: var(--red); }
+.health-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.health-dot.healthy { background: var(--green); box-shadow: 0 0 6px rgba(0,214,143,0.5); }
+.health-dot.warning { background: var(--amber); box-shadow: 0 0 6px rgba(240,165,0,0.5); }
+.health-dot.critical { background: var(--red); box-shadow: 0 0 6px rgba(230,57,70,0.5); }
+
+/* Scanline Effect (subtle) */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+}
+
+@media (max-width: 1200px) {
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .app-grid { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">C&C</div>
+    <div>
+      <div class="brand-label">Command & Conquer</div>
+      <div class="brand-sub">Operations Centre</div>
+    </div>
+  </div>
+  <nav class="nav-links">
+    <a class="nav-link active">Dashboard</a>
+    <a class="nav-link">Agents</a>
+    <a class="nav-link">Security</a>
+    <a class="nav-link">Compliance</a>
+    <a class="nav-link">App Health</a>
+    <a class="nav-link">HITL</a>
+    <a class="nav-link">Monitoring</a>
+    <a class="nav-link">Settings</a>
+  </nav>
+  <div class="topbar-right">
+    <span class="status-chip"><span class="dot"></span> Systems Online</span>
+    <div class="user-badge">JM</div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="section-header">
+    <div>
+      <h1>Operations Dashboard</h1>
+      <div class="subtitle">Real-time overview of the ARTEMIS agent ecosystem</div>
+    </div>
+    <div class="timestamp">Last updated: 14:32:47 AEST</div>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="metrics-row">
+    <div class="metric-card green">
+      <span class="metric-badge live">Live</span>
+      <div class="metric-label">Active Agents</div>
+      <div class="metric-value white">12</div>
+      <div class="metric-detail">of 14 total &middot; 1 idle, 1 error</div>
+    </div>
+    <div class="metric-card amber">
+      <span class="metric-badge warning">Medium</span>
+      <div class="metric-label">Security Score</div>
+      <div class="metric-value amber">74</div>
+      <div class="metric-detail">3 critical alerts pending</div>
+    </div>
+    <div class="metric-card red">
+      <span class="metric-badge alert">Action</span>
+      <div class="metric-label">HITL Pending</div>
+      <div class="metric-value red">6</div>
+      <div class="metric-detail">2 security &middot; 1 data &middot; 2 prod &middot; 1 financial</div>
+    </div>
+    <div class="metric-card green">
+      <div class="metric-label">Compliance</div>
+      <div class="metric-value green">86%</div>
+      <div class="metric-detail">Average across 4 frameworks</div>
+    </div>
+  </div>
+
+  <!-- Compliance + Chart -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Compliance Frameworks</div>
+      <div class="compliance-row">
+        <span class="compliance-name">SOC 2 Type II</span>
+        <div class="progress-track"><div class="progress-fill green" style="width:87%"></div></div>
+        <span class="compliance-pct green">87%</span>
+      </div>
+      <div class="compliance-row">
+        <span class="compliance-name">ISO 27001</span>
+        <div class="progress-track"><div class="progress-fill green" style="width:92%"></div></div>
+        <span class="compliance-pct green">92%</span>
+      </div>
+      <div class="compliance-row">
+        <span class="compliance-name">Privacy Act</span>
+        <div class="progress-track"><div class="progress-fill amber" style="width:78%"></div></div>
+        <span class="compliance-pct amber">78%</span>
+      </div>
+      <div class="compliance-row">
+        <span class="compliance-name">APRA CPS 234</span>
+        <div class="progress-track"><div class="progress-fill green" style="width:85%"></div></div>
+        <span class="compliance-pct green">85%</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Agent Executions (24h)</div>
+      <div class="chart-area">
+        <svg viewBox="0 0 400 130" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e63946" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#e63946" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,95 20,90 40,75 60,80 80,65 100,58 120,48 140,52 160,42 180,38 200,32 220,36 240,28 260,32 280,22 300,28 320,20 340,16 360,22 380,14 400,10 400,130 0,130" fill="url(#areaGrad)"/>
+          <polyline points="0,95 20,90 40,75 60,80 80,65 100,58 120,48 140,52 160,42 180,38 200,32 220,36 240,28 260,32 280,22 300,28 320,20 340,16 360,22 380,14 400,10" fill="none" stroke="#e63946" stroke-width="2"/>
+          <text x="0" y="125" fill="#3d4f63" font-size="9" font-family="Inter">00:00</text>
+          <text x="100" y="125" fill="#3d4f63" font-size="9" font-family="Inter">06:00</text>
+          <text x="200" y="125" fill="#3d4f63" font-size="9" font-family="Inter">12:00</text>
+          <text x="300" y="125" fill="#3d4f63" font-size="9" font-family="Inter">18:00</text>
+          <text x="382" y="125" fill="#3d4f63" font-size="9" font-family="Inter">Now</text>
+        </svg>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:8px">24,847 executions &middot; Trending up 12%</div>
+    </div>
+  </div>
+
+  <!-- Application Health -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-title">Application Health</div>
+    <div class="app-grid">
+      <div class="app-tile">
+        <span class="app-dot healthy"></span>
+        <div><div class="app-name">ClaimsAI</div><div class="app-meta">99.9% &middot; 142ms</div></div>
+      </div>
+      <div class="app-tile">
+        <span class="app-dot healthy"></span>
+        <div><div class="app-name">PolicyCentral</div><div class="app-meta">99.8% &middot; 156ms</div></div>
+      </div>
+      <div class="app-tile">
+        <span class="app-dot warning"></span>
+        <div><div class="app-name">WALTER</div><div class="app-meta">98.2% &middot; 487ms</div></div>
+      </div>
+      <div class="app-tile">
+        <span class="app-dot healthy"></span>
+        <div><div class="app-name">HAL</div><div class="app-meta">99.7% &middot; 89ms</div></div>
+      </div>
+      <div class="app-tile">
+        <span class="app-dot offline"></span>
+        <div><div class="app-name">Artemis</div><div class="app-meta">Offline &middot; Maint.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Agents Table (condensed) + Activity Feed -->
+  <div class="grid-2">
+    <div class="card" style="padding:0">
+      <div style="padding:16px 20px 0"><div class="card-title">Agent Fleet (Top 8)</div></div>
+      <div class="table-container" style="border:none;border-radius:0">
+        <table>
+          <thead><tr><th>Agent</th><th>Category</th><th>Status</th><th>Health</th></tr></thead>
+          <tbody>
+            <tr><td><span class="agent-id">sec-monitor-001</span></td><td><span class="badge secops">SecOps</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">vuln-mgmt-001</span></td><td><span class="badge secops">SecOps</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">incident-resp-001</span></td><td><span class="badge secops">SecOps</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">compliance-001</span></td><td><span class="badge compliance">Compliance</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">dba-001</span></td><td><span class="badge prodops">ProdOps</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">walter-prod-001</span></td><td><span class="badge prodops">ProdOps</span></td><td><span class="badge error">Error</span></td><td><span class="health-dot critical"></span></td></tr>
+            <tr><td><span class="agent-id">walter-qa-001</span></td><td><span class="badge qa">QA</span></td><td><span class="badge idle">Idle</span></td><td><span class="health-dot healthy"></span></td></tr>
+            <tr><td><span class="agent-id">hal-pricing-001</span></td><td><span class="badge qa">QA</span></td><td><span class="badge active">Active</span></td><td><span class="health-dot warning"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recent Activity</div>
+      <div class="feed-list">
+        <div class="feed-entry"><span class="feed-time">14:32</span><span class="feed-body"><strong>sec-monitor-001</strong> detected 3 failed login attempts on ClaimsAI from IP 203.14.xx.xx</span></div>
+        <div class="feed-entry"><span class="feed-time">14:28</span><span class="feed-body"><strong>dba-001</strong> completed nightly VACUUM ANALYSE on walter_development</span></div>
+        <div class="feed-entry"><span class="feed-time">14:15</span><span class="feed-body"><strong>compliance-001</strong> collected SOC 2 evidence for AC-2 control</span></div>
+        <div class="feed-entry"><span class="feed-time">14:02</span><span class="feed-body"><strong>claimsai-workflow-001</strong> escalated Claim #CAI-00004521 &mdash; SLA breach</span></div>
+        <div class="feed-entry"><span class="feed-time">13:55</span><span class="feed-body"><strong>hal-pricing-001</strong> flagged pricing anomaly on Quote #HQ-7821</span></div>
+        <div class="feed-entry"><span class="feed-time">13:48</span><span class="feed-body"><strong>vuln-mgmt-001</strong> completed daily scan &mdash; 2 HIGH, 7 MEDIUM</span></div>
+        <div class="feed-entry"><span class="feed-time">13:30</span><span class="feed-body"><strong>access-mgmt-001</strong> provisioned 3 new users across PolicyCentral</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

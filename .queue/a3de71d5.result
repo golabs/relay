@@ -1,0 +1,13 @@
+I'll fix both issues:
+1. The JavaScript error with `checkHealth`
+2. Make the description text white and Claude response text whiteThe issue is that `healthDot` or `healthText` elements don't exist in the DOM. Let me add null checks:Now let me fix the text colors. Let me find the response text styling:Let me check the text-primary variable and the response area text color:I see the `--text-secondary` is gray. Let me make it brighter and also update the response area text to be whiter:Now let me also make sure the response area body text is white:Now let me also ensure the skill info description is bright white since you mentioned it:Good, the skill info text is already set to white. Now let me restart the server to apply the JS fix:Done. I fixed:
+
+1. **JavaScript Error** - Added null checks to `checkHealth()` function so it won't crash if DOM elements are missing
+
+2. **Text Colors** - Made text brighter:
+   - `--text` changed from `#e8ecf4` to `#ffffff` (pure white)
+   - `--text-secondary` changed from `rgba(200, 210, 230, 0.55)` to `rgba(220, 230, 245, 0.75)` (brighter)
+   - `.message-body` (Claude response) changed to `#ffffff` and slightly larger font (14px)
+   - `.skill-info-text` already set to `#ffffff` with 18px font
+
+Hard refresh your browser (**Ctrl+Shift+R**) to see the changes. The JavaScript errors should be gone and all text should be white/brighter.

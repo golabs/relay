@@ -1066,6 +1066,52 @@
         showToast('Conversation exported', 'success');
     }
 
+    // ========== MODEL SELECTION ==========
+    var currentModel = 'claude';  // Default to Claude CLI
+
+    function getSelectedModel() {
+        var select = document.getElementById('modelSelect');
+        return select ? select.value : 'claude';
+    }
+
+    async function switchModel(modelId) {
+        currentModel = modelId;
+        localStorage.setItem('selectedModel', modelId);
+
+        // Update UI to show current model
+        var select = document.getElementById('modelSelect');
+        if (select) select.value = modelId;
+
+        // Announce model switch
+        var modelName = modelId === 'claude' ? 'Claude' : modelId.split('/').pop();
+        showToast('Switched to ' + modelName, 'success');
+
+        // Save preference to server
+        try {
+            await fetch('/api/model/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: modelId })
+            });
+        } catch (e) {
+            console.log('Model preference save failed:', e);
+        }
+    }
+
+    // Load saved model preference
+    function loadModelPreference() {
+        var saved = localStorage.getItem('selectedModel');
+        if (saved) {
+            currentModel = saved;
+            var select = document.getElementById('modelSelect');
+            if (select) select.value = saved;
+        }
+    }
+
+    // Expose globally
+    window.switchModel = switchModel;
+    window.getSelectedModel = getSelectedModel;
+
     // ========== PROJECT LOADING ==========
     // Helper to get current project from either select
     function getSelectedProject() {
@@ -2827,7 +2873,8 @@
     window.sendMessage = sendMessage;
 
     async function sendMessageDirect(text, images, files, project, videos, pdfs) {
-        var model = 'opus';
+        // Use selected model from dropdown (defaults to 'claude' which uses local CLI)
+        var model = getSelectedModel() || 'claude';
         pendingUserMessage = text;
         statusEl.textContent = 'Sending...';
 
@@ -3099,14 +3146,22 @@
                     screenCleared = false;
                     localStorage.removeItem('screenCleared');
 
-                    // Mark live box as complete then hide after brief delay
+                    // Mark live box as complete then hide after longer delay
+                    // so user can see the completion summary
                     // Use tracked timer so it can be cancelled if new job starts
                     completeLiveBox();
+
+                    // Show a brief completion summary in the live box
+                    var completionSummary = extractCompletionSummary(data.result);
+                    if (completionSummary) {
+                        updateLiveBox('<div class="live-completion-summary">' + completionSummary + '</div>', 'Complete ✓');
+                    }
+
                     hideLiveBoxTimer = setTimeout(function() {
                         hideLiveBox();
                         renderChatHistory();
                         hideLiveBoxTimer = null;
-                    }, 1000);
+                    }, 5000); // Extended to 5 seconds so user can read summary
 
                     statusEl.textContent = 'Complete';
 
@@ -3138,6 +3193,21 @@
                     var activityText = data.activity || ('Thinking' + '.'.repeat(dots));
                     statusEl.textContent = activityText + ' (' + elapsed + 's)';
                     showAckBanner(activityText + ' (' + elapsed + 's)', true);
+
+                    // Announce major activity changes via voice
+                    if (window.autoReadEnabled && activityText !== window.lastSpokenActivity) {
+                        // Only announce significant activities (agents, searches, etc.)
+                        if (activityText.indexOf('Agent') !== -1 ||
+                            activityText.indexOf('agent') !== -1 ||
+                            activityText.indexOf('Explorer') !== -1 ||
+                            activityText.indexOf('Research') !== -1 ||
+                            activityText.indexOf('Planning') !== -1 ||
+                            activityText.indexOf('Web search') !== -1 ||
+                            activityText.indexOf('Complete') !== -1) {
+                            window.lastSpokenActivity = activityText;
+                            speakActivityUpdate(activityText);
+                        }
+                    }
 
                     if (data.stream && data.stream.length > 0) {
                         var streamText = parseStreamJson(data.stream);
@@ -3178,16 +3248,99 @@
                         } else if (content[j].type === 'tool_use') {
                             var tool = content[j].name;
                             var input = content[j].input || {};
+                            // Natural language descriptions for each tool
+                            var toolDesc = '';
                             if (tool === 'Read' && input.file_path) {
-                                textParts.push('Reading: ' + input.file_path.split('/').pop());
+                                var filename = input.file_path.split('/').pop();
+                                toolDesc = '📖 Reading file: ' + filename;
+                                textParts.push(toolDesc);
                             } else if (tool === 'Edit' && input.file_path) {
-                                textParts.push('Editing: ' + input.file_path.split('/').pop());
-                            } else if (tool === 'Bash' && input.command) {
-                                textParts.push('Running: ' + input.command.substring(0, 60) + (input.command.length > 60 ? '...' : ''));
+                                var filename = input.file_path.split('/').pop();
+                                toolDesc = '✏️ Editing file: ' + filename;
+                                textParts.push(toolDesc);
+                            } else if (tool === 'Write' && input.file_path) {
+                                var filename = input.file_path.split('/').pop();
+                                toolDesc = '📝 Creating file: ' + filename;
+                                textParts.push(toolDesc);
+                            } else if (tool === 'Bash') {
+                                var cmd = input.command || '';
+                                var desc = input.description || '';
+                                if (desc) {
+                                    toolDesc = '💻 ' + desc;
+                                } else if (cmd.startsWith('git ')) {
+                                    toolDesc = '💻 Running git ' + (cmd.split(' ')[1] || 'command');
+                                } else if (cmd.startsWith('npm ') || cmd.startsWith('yarn ')) {
+                                    toolDesc = '💻 Running ' + cmd.substring(0, 40);
+                                } else {
+                                    toolDesc = '💻 Executing: ' + cmd.substring(0, 50) + (cmd.length > 50 ? '...' : '');
+                                }
+                                textParts.push(toolDesc);
                             } else if (tool === 'Grep' && input.pattern) {
-                                textParts.push('Searching: ' + input.pattern);
+                                var searchPath = input.path ? ' in ' + input.path.split('/').pop() : ' in codebase';
+                                toolDesc = '🔍 Searching for "' + input.pattern + '"' + searchPath;
+                                textParts.push(toolDesc);
+                            } else if (tool === 'Glob' && input.pattern) {
+                                toolDesc = '📂 Finding files matching: ' + input.pattern;
+                                textParts.push(toolDesc);
+                            } else if (tool === 'Task') {
+                                var desc = input.description || '';
+                                var prompt = input.prompt || '';
+                                var agentType = input.subagent_type || 'general';
+                                var toolId = (content[j].id || '').substring(0, 8);
+
+                                // Natural language agent type names
+                                var agentTypeName = 'Agent';
+                                if (agentType === 'Explore') agentTypeName = 'Explorer';
+                                else if (agentType === 'Plan') agentTypeName = 'Planner';
+                                else if (agentType === 'general-purpose') agentTypeName = 'Research Agent';
+                                else if (agentType === 'Bash') agentTypeName = 'Command Agent';
+
+                                // Build detailed description
+                                if (desc) {
+                                    toolDesc = '🤖 ' + agentTypeName + ' (' + toolId + '): ' + desc;
+                                } else if (prompt) {
+                                    var firstLine = prompt.split('\n')[0].substring(0, 60);
+                                    toolDesc = '🤖 ' + agentTypeName + ' (' + toolId + '): ' + firstLine;
+                                } else {
+                                    toolDesc = '🤖 Starting ' + agentTypeName + ' (' + toolId + ')';
+                                }
+                                textParts.push(toolDesc);
+
+                                // Speak agent launch for significant agents
+                                if (window.autoReadEnabled && !window.agentAnnouncedIds) {
+                                    window.agentAnnouncedIds = {};
+                                }
+                                if (window.autoReadEnabled && toolId && !window.agentAnnouncedIds[toolId]) {
+                                    window.agentAnnouncedIds[toolId] = true;
+                                    var voiceMsg = agentTypeName + ' starting: ' + (desc || 'working on task');
+                                    speakActivityUpdate(voiceMsg);
+                                }
+                            } else if (tool === 'TodoWrite') {
+                                toolDesc = '📋 Updating task checklist';
+                                textParts.push(toolDesc);
+                            } else if (tool === 'WebFetch') {
+                                var url = input.url || '';
+                                var domain = url ? url.split('//')[1]?.split('/')[0] || 'web page' : 'web page';
+                                toolDesc = '🌐 Fetching content from ' + domain;
+                                textParts.push(toolDesc);
+                            } else if (tool === 'WebSearch') {
+                                toolDesc = '🔎 Searching the web for: ' + (input.query || '');
+                                textParts.push(toolDesc);
+                            } else if (tool === 'AskUserQuestion') {
+                                toolDesc = '❓ Waiting for your response';
+                                textParts.push(toolDesc);
                             } else {
-                                textParts.push('Using ' + tool + '...');
+                                toolDesc = '🔧 Using ' + tool;
+                                textParts.push(toolDesc);
+                            }
+                        } else if (content[j].type === 'tool_result') {
+                            // Show tool results for important tools
+                            var resultText = content[j].content;
+                            if (typeof resultText === 'string' && resultText.length > 0) {
+                                // Truncate long results but show key info
+                                var preview = resultText.substring(0, 200);
+                                if (resultText.length > 200) preview += '...';
+                                textParts.push('→ ' + preview);
                             }
                         }
                     }
@@ -3201,6 +3354,47 @@
             }
         }
         return textParts.join('\n');
+    }
+
+    // Extract a brief summary from the completion result
+    function extractCompletionSummary(result) {
+        if (!result) return '';
+
+        // Try to find key summary indicators
+        var text = result.toString();
+
+        // Look for common summary patterns
+        var patterns = [
+            /\*\*(?:Summary|Done|Complete|Completed|Finished)[:\*]*\s*([^\n]+)/i,
+            /(?:✓|✅|Done|Complete)[:\s]*([^\n]+)/i,
+            /^##?\s*(?:Summary|Results?|Output)[:\s]*\n([^\n]+)/im
+        ];
+
+        for (var i = 0; i < patterns.length; i++) {
+            var match = text.match(patterns[i]);
+            if (match && match[1]) {
+                return match[1].substring(0, 200);
+            }
+        }
+
+        // Fallback: get first meaningful line (skip code blocks, blank lines)
+        var lines = text.split('\n').filter(function(line) {
+            line = line.trim();
+            return line.length > 10 &&
+                   !line.startsWith('```') &&
+                   !line.startsWith('#') &&
+                   !line.startsWith('|') &&
+                   !line.startsWith('-') &&
+                   !line.startsWith('*');
+        });
+
+        if (lines.length > 0) {
+            var summary = lines[0].substring(0, 200);
+            if (lines[0].length > 200) summary += '...';
+            return summary;
+        }
+
+        return 'Task completed successfully';
     }
 
     // ========== WORKFLOW COMPLETION ==========
@@ -4479,6 +4673,45 @@
 
         return cleaned;
     }
+
+    // Speak activity updates (brief, non-interrupting announcements)
+    var lastActivitySpoken = '';
+    var activitySpeakCooldown = false;
+    function speakActivityUpdate(text) {
+        // Only speak if auto-read is enabled and we're not in cooldown
+        if (!window.autoReadEnabled) return;
+        if (activitySpeakCooldown) return;
+        if (text === lastActivitySpoken) return;
+
+        // Don't interrupt main speech
+        if (isSpeakingText) return;
+
+        lastActivitySpoken = text;
+        activitySpeakCooldown = true;
+
+        // Brief cooldown to prevent spam
+        setTimeout(function() {
+            activitySpeakCooldown = false;
+        }, 5000); // 5 second cooldown between activity announcements
+
+        // Use a quieter, faster announcement
+        var cleanedText = text.replace(/[📖✏️📝💻🔍📂🤖📋🌐🔎❓🔧]/g, '').trim();
+
+        // Use Edge TTS for activity announcements (faster)
+        if (voiceSettings.engine === 'edge-tts') {
+            var edgeVoice = voiceSettings.axionEdgeVoice || 'en-US-GuyNeural';
+            speakWithEdgeTts(cleanedText, edgeVoice, function() {});
+        } else if (window.speechSynthesis) {
+            // Fallback to browser speech
+            var utterance = new SpeechSynthesisUtterance(cleanedText);
+            utterance.rate = 1.2; // Slightly faster
+            utterance.volume = 0.7; // Slightly quieter
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // Expose for use in parseStreamJson
+    window.speakActivityUpdate = speakActivityUpdate;
 
     function speak(text, panel) {
         cancelAllSpeech();
@@ -6507,8 +6740,15 @@
                 // Close modal after short delay
                 setTimeout(closeGitMergeModal, 1500);
             } else {
-                showMergeStatus(data.error, 'error');
-                showToast('Merge failed: ' + data.error, 'error');
+                // Check if it's a conflict
+                if (data.conflicts || (data.output && data.output.includes('CONFLICT'))) {
+                    // Show conflict choice dialog instead of auto-opening
+                    closeGitMergeModal();
+                    showConflictChoiceDialog(project, sourceBranch);
+                } else {
+                    showMergeStatus(data.error, 'error');
+                    showToast('Merge failed: ' + data.error, 'error');
+                }
             }
         } catch (err) {
             showMergeStatus('Network error: ' + err.message, 'error');
@@ -6873,9 +7113,19 @@
                     closeGitPullModal();
                 }, 2000);
             } else {
-                resultPre.textContent = data.error + (data.output ? '\n\n' + data.output : '');
-                resultPre.style.color = 'var(--error)';
-                showToast('Pull failed: ' + data.error, 'error');
+                // Check if it's a conflict
+                if (data.output && (data.output.includes('CONFLICT') || data.output.includes('conflict'))) {
+                    resultPre.textContent = 'Merge conflicts detected!';
+                    resultPre.style.color = 'var(--error)';
+
+                    // Show conflict choice dialog instead of auto-opening
+                    closeGitPullModal();
+                    showConflictChoiceDialog(project, selectedBranch);
+                } else {
+                    resultPre.textContent = data.error + (data.output ? '\n\n' + data.output : '');
+                    resultPre.style.color = 'var(--error)';
+                    showToast('Pull failed: ' + data.error, 'error');
+                }
             }
 
             btn.disabled = false;
@@ -6889,6 +7139,631 @@
         }
     }
     window.executePull = executePull;
+
+    // ========== GIT CONFLICT RESOLUTION FUNCTIONS ==========
+    var conflictData = null;
+    var currentConflictFile = null;
+    var aiResolvedContent = null;
+    var resolvedFiles = new Set();
+    var pendingConflictProject = null;
+    var pendingConflictBranch = null;
+
+    function showConflictChoiceDialog(project, sourceBranch) {
+        pendingConflictProject = project;
+        pendingConflictBranch = sourceBranch;
+
+        var modal = document.getElementById('conflictChoiceModal');
+        if (!modal) {
+            // Create modal dynamically if it doesn't exist
+            modal = document.createElement('div');
+            modal.id = 'conflictChoiceModal';
+            modal.className = 'modal-overlay';
+            modal.style.display = 'none';
+            modal.innerHTML = '<div class="conflict-choice-container">' +
+                '<div class="conflict-choice-header">' +
+                    '<h3>Merge Conflicts Detected</h3>' +
+                '</div>' +
+                '<div class="conflict-choice-body">' +
+                    '<p class="conflict-choice-desc">Conflicts were found while merging. How would you like to resolve them?</p>' +
+                    '<div class="conflict-choice-options">' +
+                        '<button class="conflict-choice-btn ours" onclick="resolveAllConflicts(\'ours\')">' +
+                            '<span class="choice-icon">📁</span>' +
+                            '<span class="choice-title">Use Local (Ours)</span>' +
+                            '<span class="choice-desc">Keep your current local changes, discard incoming</span>' +
+                        '</button>' +
+                        '<button class="conflict-choice-btn theirs" onclick="resolveAllConflicts(\'theirs\')">' +
+                            '<span class="choice-icon">☁️</span>' +
+                            '<span class="choice-title">Use Remote (Theirs)</span>' +
+                            '<span class="choice-desc">Accept all incoming changes, discard local</span>' +
+                        '</button>' +
+                        '<button class="conflict-choice-btn manual" onclick="openManualConflictResolution()">' +
+                            '<span class="choice-icon">🔧</span>' +
+                            '<span class="choice-title">Manual Resolution</span>' +
+                            '<span class="choice-desc">Review each conflict side-by-side with AI assist</span>' +
+                        '</button>' +
+                        '<button class="conflict-choice-btn abort" onclick="abortConflictMerge()">' +
+                            '<span class="choice-icon">↩️</span>' +
+                            '<span class="choice-title">Abort Merge</span>' +
+                            '<span class="choice-desc">Cancel and return to previous state</span>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+            document.body.appendChild(modal);
+        }
+
+        // Update the description with branch info
+        var desc = modal.querySelector('.conflict-choice-desc');
+        if (desc && sourceBranch) {
+            desc.textContent = 'Conflicts were found while merging from "' + sourceBranch + '". How would you like to resolve them?';
+        }
+
+        modal.style.display = 'block';
+    }
+    window.showConflictChoiceDialog = showConflictChoiceDialog;
+
+    function closeConflictChoiceDialog() {
+        var modal = document.getElementById('conflictChoiceModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+    window.closeConflictChoiceDialog = closeConflictChoiceDialog;
+
+    async function resolveAllConflicts(strategy) {
+        var project = pendingConflictProject;
+        if (!project) {
+            showToast('No project context', 'error');
+            return;
+        }
+
+        closeConflictChoiceDialog();
+        showToast('Resolving all conflicts using ' + strategy + '...', 'info');
+
+        try {
+            // First get the list of conflicted files
+            var res = await fetch('/api/git/conflicts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project: project })
+            });
+            var data = await res.json();
+
+            if (!data.success || !data.has_conflicts) {
+                showToast('No conflicts found', 'info');
+                return;
+            }
+
+            // Resolve each file
+            var resolved = 0;
+            var failed = 0;
+            for (var i = 0; i < data.conflicts.length; i++) {
+                var conflict = data.conflicts[i];
+                var resolveRes = await fetch('/api/git/resolve-conflict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project: project,
+                        file: conflict.file,
+                        resolution: strategy
+                    })
+                });
+                var resolveData = await resolveRes.json();
+                if (resolveData.success) {
+                    resolved++;
+                } else {
+                    failed++;
+                }
+            }
+
+            if (failed === 0) {
+                // All resolved, complete the merge
+                var completeRes = await fetch('/api/git/complete-merge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        project: project,
+                        action: 'commit',
+                        message: 'Merge completed - resolved all conflicts using ' + strategy
+                    })
+                });
+                var completeData = await completeRes.json();
+
+                if (completeData.success) {
+                    showToast('Merge completed! Resolved ' + resolved + ' file(s) using ' + strategy, 'success');
+                    gitStatus();
+                } else {
+                    showToast('Failed to complete merge: ' + completeData.error, 'error');
+                }
+            } else {
+                showToast('Resolved ' + resolved + ' files, ' + failed + ' failed. Opening manual resolution...', 'error');
+                openConflictModal(project);
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+        }
+    }
+    window.resolveAllConflicts = resolveAllConflicts;
+
+    function openManualConflictResolution() {
+        closeConflictChoiceDialog();
+        openConflictModal(pendingConflictProject);
+    }
+    window.openManualConflictResolution = openManualConflictResolution;
+
+    async function abortConflictMerge() {
+        var project = pendingConflictProject;
+        closeConflictChoiceDialog();
+
+        try {
+            var res = await fetch('/api/git/complete-merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    action: 'abort'
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                showToast('Merge aborted', 'info');
+                gitStatus();
+            } else {
+                showToast('Failed to abort: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showToast('Error: ' + err.message, 'error');
+        }
+    }
+    window.abortConflictMerge = abortConflictMerge;
+
+    async function openConflictModal(project) {
+        if (!project) {
+            project = document.getElementById('projectSelect').value;
+        }
+        if (!project) {
+            showToast('Please select a project first', 'error');
+            return;
+        }
+
+        var modal = document.getElementById('gitConflictModal');
+        modal.style.display = 'block';
+
+        document.getElementById('conflictProjectName').textContent = project;
+        document.getElementById('conflictFileList').textContent = 'Loading conflicts...';
+        document.getElementById('conflictOurs').textContent = '';
+        document.getElementById('conflictTheirs').textContent = '';
+        document.getElementById('currentConflictFile').textContent = 'Loading...';
+        document.getElementById('completeMergeBtn').disabled = true;
+
+        // Hide custom and AI sections
+        document.getElementById('customResolveSection').style.display = 'none';
+        document.getElementById('aiResolvePreview').style.display = 'none';
+
+        // Reset state
+        resolvedFiles.clear();
+        conflictData = null;
+        currentConflictFile = null;
+        aiResolvedContent = null;
+
+        // Fetch conflicts
+        try {
+            var res = await fetch('/api/git/conflicts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project: project })
+            });
+            var data = await res.json();
+
+            if (!data.success) {
+                showToast('Failed to load conflicts: ' + data.error, 'error');
+                closeConflictModal();
+                return;
+            }
+
+            if (!data.has_conflicts) {
+                showToast('No conflicts found', 'info');
+                closeConflictModal();
+                return;
+            }
+
+            conflictData = data;
+            renderConflictFileList();
+
+            // Select first file
+            if (data.conflicts.length > 0) {
+                selectConflictFile(data.conflicts[0].file);
+            }
+
+            document.getElementById('conflictCount').textContent = data.conflict_count + ' conflict' + (data.conflict_count > 1 ? 's' : '');
+
+        } catch (err) {
+            showToast('Network error: ' + err.message, 'error');
+            closeConflictModal();
+        }
+    }
+    window.openConflictModal = openConflictModal;
+
+    function closeConflictModal() {
+        document.getElementById('gitConflictModal').style.display = 'none';
+        conflictData = null;
+        currentConflictFile = null;
+        aiResolvedContent = null;
+        resolvedFiles.clear();
+    }
+    window.closeConflictModal = closeConflictModal;
+
+    function renderConflictFileList() {
+        var container = document.getElementById('conflictFileList');
+        if (!conflictData || !conflictData.conflicts) {
+            container.textContent = 'No conflicts';
+            return;
+        }
+
+        // Clear container safely using DOM methods
+        container.textContent = '';
+
+        conflictData.conflicts.forEach(function(conflict) {
+            var isResolved = resolvedFiles.has(conflict.file);
+            var isActive = currentConflictFile === conflict.file;
+
+            var item = document.createElement('div');
+            item.className = 'conflict-file-item' + (isActive ? ' active' : '') + (isResolved ? ' resolved' : '');
+            item.onclick = function() { selectConflictFile(conflict.file); };
+
+            var nameSpan = document.createElement('span');
+            nameSpan.className = 'conflict-file-name-text';
+            nameSpan.textContent = conflict.file;
+
+            item.appendChild(nameSpan);
+            container.appendChild(item);
+        });
+
+        updateCompleteMergeButton();
+    }
+
+    function selectConflictFile(filepath) {
+        currentConflictFile = filepath;
+        renderConflictFileList();
+
+        // Find the conflict data
+        var conflict = conflictData.conflicts.find(function(c) { return c.file === filepath; });
+        if (!conflict) {
+            showToast('Conflict not found', 'error');
+            return;
+        }
+
+        document.getElementById('currentConflictFile').textContent = filepath;
+
+        // Show ours vs theirs
+        var oursContent = conflict.versions && conflict.versions.ours ? conflict.versions.ours : 'Content not available';
+        var theirsContent = conflict.versions && conflict.versions.theirs ? conflict.versions.theirs : 'Content not available';
+
+        document.getElementById('conflictOurs').textContent = oursContent;
+        document.getElementById('conflictTheirs').textContent = theirsContent;
+
+        // Hide custom and AI sections when switching files
+        document.getElementById('customResolveSection').style.display = 'none';
+        document.getElementById('aiResolvePreview').style.display = 'none';
+        hideConflictStatus();
+    }
+    window.selectConflictFile = selectConflictFile;
+
+    async function resolveConflict(strategy) {
+        if (!currentConflictFile) {
+            showToast('No file selected', 'error');
+            return;
+        }
+
+        var project = document.getElementById('projectSelect').value;
+        showConflictStatus('Resolving conflict using ' + strategy + '...', 'loading');
+
+        try {
+            var res = await fetch('/api/git/resolve-conflict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    file: currentConflictFile,
+                    resolution: strategy
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                resolvedFiles.add(currentConflictFile);
+                showConflictStatus('Resolved ' + currentConflictFile + ' using ' + strategy, 'success');
+                showToast('Conflict resolved', 'success');
+                renderConflictFileList();
+
+                // Select next unresolved file
+                var nextFile = conflictData.conflicts.find(function(c) {
+                    return !resolvedFiles.has(c.file);
+                });
+                if (nextFile) {
+                    selectConflictFile(nextFile.file);
+                }
+            } else {
+                showConflictStatus('Failed: ' + data.error, 'error');
+                showToast('Resolution failed: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showConflictStatus('Network error: ' + err.message, 'error');
+            showToast('Network error: ' + err.message, 'error');
+        }
+    }
+    window.resolveConflict = resolveConflict;
+
+    async function aiResolveConflict() {
+        if (!currentConflictFile) {
+            showToast('No file selected', 'error');
+            return;
+        }
+
+        var project = document.getElementById('projectSelect').value;
+        var btn = document.getElementById('aiResolveBtn');
+        btn.disabled = true;
+        btn.textContent = 'Resolving...';
+        showConflictStatus('AI is analyzing the conflict... This may take a moment.', 'loading');
+
+        try {
+            var res = await fetch('/api/git/ai-resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    file: currentConflictFile
+                })
+            });
+            var data = await res.json();
+
+            btn.disabled = false;
+            btn.textContent = 'AI Resolve';
+
+            if (data.success) {
+                aiResolvedContent = data.resolved_content;
+                document.getElementById('aiResolveContent').textContent = data.resolved_content;
+                document.getElementById('aiResolvePreview').style.display = 'flex';
+                showConflictStatus('AI generated a resolution. Review and accept or edit.', 'success');
+            } else {
+                showConflictStatus('AI resolution failed: ' + data.error, 'error');
+                showToast('AI resolution failed: ' + data.error, 'error');
+            }
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'AI Resolve';
+            showConflictStatus('Network error: ' + err.message, 'error');
+            showToast('Network error: ' + err.message, 'error');
+        }
+    }
+    window.aiResolveConflict = aiResolveConflict;
+
+    async function acceptAiResolve() {
+        if (!aiResolvedContent || !currentConflictFile) {
+            showToast('No AI resolution to apply', 'error');
+            return;
+        }
+
+        var project = document.getElementById('projectSelect').value;
+        showConflictStatus('Applying AI resolution...', 'loading');
+
+        try {
+            var res = await fetch('/api/git/resolve-conflict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    file: currentConflictFile,
+                    resolution: 'custom',
+                    content: aiResolvedContent
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                resolvedFiles.add(currentConflictFile);
+                document.getElementById('aiResolvePreview').style.display = 'none';
+                showConflictStatus('AI resolution applied successfully', 'success');
+                showToast('AI resolution applied', 'success');
+                renderConflictFileList();
+                aiResolvedContent = null;
+
+                // Select next unresolved file
+                var nextFile = conflictData.conflicts.find(function(c) {
+                    return !resolvedFiles.has(c.file);
+                });
+                if (nextFile) {
+                    selectConflictFile(nextFile.file);
+                }
+            } else {
+                showConflictStatus('Failed: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showConflictStatus('Network error: ' + err.message, 'error');
+        }
+    }
+    window.acceptAiResolve = acceptAiResolve;
+
+    function rejectAiResolve() {
+        document.getElementById('aiResolvePreview').style.display = 'none';
+        aiResolvedContent = null;
+        hideConflictStatus();
+    }
+    window.rejectAiResolve = rejectAiResolve;
+
+    function editAiResolve() {
+        if (!aiResolvedContent) return;
+        document.getElementById('customResolveEditor').value = aiResolvedContent;
+        document.getElementById('customResolveSection').style.display = 'flex';
+        document.getElementById('aiResolvePreview').style.display = 'none';
+    }
+    window.editAiResolve = editAiResolve;
+
+    function cancelCustomResolve() {
+        document.getElementById('customResolveSection').style.display = 'none';
+    }
+    window.cancelCustomResolve = cancelCustomResolve;
+
+    async function applyCustomResolve() {
+        var content = document.getElementById('customResolveEditor').value;
+        if (!content || !currentConflictFile) {
+            showToast('No content to apply', 'error');
+            return;
+        }
+
+        var project = document.getElementById('projectSelect').value;
+        showConflictStatus('Applying custom resolution...', 'loading');
+
+        try {
+            var res = await fetch('/api/git/resolve-conflict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    file: currentConflictFile,
+                    resolution: 'custom',
+                    content: content
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                resolvedFiles.add(currentConflictFile);
+                document.getElementById('customResolveSection').style.display = 'none';
+                showConflictStatus('Custom resolution applied', 'success');
+                showToast('Resolution applied', 'success');
+                renderConflictFileList();
+
+                // Select next unresolved file
+                var nextFile = conflictData.conflicts.find(function(c) {
+                    return !resolvedFiles.has(c.file);
+                });
+                if (nextFile) {
+                    selectConflictFile(nextFile.file);
+                }
+            } else {
+                showConflictStatus('Failed: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showConflictStatus('Network error: ' + err.message, 'error');
+        }
+    }
+    window.applyCustomResolve = applyCustomResolve;
+
+    function copyDiffPane(side) {
+        var content = document.getElementById(side === 'ours' ? 'conflictOurs' : 'conflictTheirs').textContent;
+        navigator.clipboard.writeText(content).then(function() {
+            showToast('Copied to clipboard', 'success');
+        }).catch(function() {
+            showToast('Failed to copy', 'error');
+        });
+    }
+    window.copyDiffPane = copyDiffPane;
+
+    async function abortMerge() {
+        var project = document.getElementById('projectSelect').value;
+        if (!confirm('Are you sure you want to abort the merge? All conflict resolution work will be lost.')) {
+            return;
+        }
+
+        try {
+            var res = await fetch('/api/git/complete-merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    action: 'abort'
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                showToast('Merge aborted', 'info');
+                closeConflictModal();
+            } else {
+                showToast('Failed to abort merge: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showToast('Network error: ' + err.message, 'error');
+        }
+    }
+    window.abortMerge = abortMerge;
+
+    async function completeMerge() {
+        var project = document.getElementById('projectSelect').value;
+
+        // Check all conflicts are resolved
+        if (conflictData && conflictData.conflicts) {
+            var unresolvedCount = conflictData.conflicts.filter(function(c) {
+                return !resolvedFiles.has(c.file);
+            }).length;
+
+            if (unresolvedCount > 0) {
+                showToast('Please resolve all ' + unresolvedCount + ' remaining conflict(s) first', 'error');
+                return;
+            }
+        }
+
+        try {
+            var res = await fetch('/api/git/complete-merge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    project: project,
+                    action: 'commit',
+                    message: 'Merge completed - conflicts resolved via Relay'
+                })
+            });
+            var data = await res.json();
+
+            if (data.success) {
+                showToast('Merge completed successfully!', 'success');
+                closeConflictModal();
+
+                // Refresh git status in main modal
+                gitStatus();
+            } else {
+                showToast('Failed to complete merge: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showToast('Network error: ' + err.message, 'error');
+        }
+    }
+    window.completeMerge = completeMerge;
+
+    function updateCompleteMergeButton() {
+        var btn = document.getElementById('completeMergeBtn');
+        if (!conflictData || !conflictData.conflicts) {
+            btn.disabled = true;
+            return;
+        }
+
+        var allResolved = conflictData.conflicts.every(function(c) {
+            return resolvedFiles.has(c.file);
+        });
+
+        btn.disabled = !allResolved;
+        if (allResolved) {
+            btn.title = 'All conflicts resolved - click to complete merge';
+        } else {
+            var remaining = conflictData.conflicts.filter(function(c) {
+                return !resolvedFiles.has(c.file);
+            }).length;
+            btn.title = remaining + ' conflict(s) remaining';
+        }
+    }
+
+    function showConflictStatus(message, type) {
+        var statusDiv = document.getElementById('conflictStatus');
+        statusDiv.textContent = message;
+        statusDiv.className = 'conflict-status ' + type;
+        statusDiv.style.display = 'block';
+    }
+
+    function hideConflictStatus() {
+        document.getElementById('conflictStatus').style.display = 'none';
+    }
 
     // ========== GIT LOG VIEWER FUNCTIONS ==========
     var gitLogCurrentSkip = 0;
@@ -10822,6 +11697,7 @@
     window.speechSynthesis.onvoiceschanged = populateVoices;
 
     loadProjects();
+    loadModelPreference();  // Load saved model selection
     initSidebar();
     initHistoryMode();
     checkHealth();

@@ -1,0 +1,29 @@
+{
+  "entries": [
+    {
+      "user": "sorry my bad I just saw what you were talking about with the the chat and the the drop down so yeah that's perfect that's fine the only thing is it'd be good to see that drop down in the Brett tab next to the voice",
+      "assistant": "Done. The Brett pane now has its own model selector dropdown next to the Voice button. Both selectors (header and Brett pane) stay in sync - changing one updates the other. The preference is also saved to localStorage so it persists between sessions.",
+      "timestamp": 1769691688.928
+    },
+    {
+      "user": "H",
+      "assistant": "I see you've sent an empty message. How can I help you today? I'm ready to assist with software engineering tasks, answer questions about the codebase, or help with any of the available skills like creating commits, code reviews, or planning features.",
+      "timestamp": 1769720608.257
+    },
+    {
+      "user": "You there?",
+      "assistant": "Yes, I'm here. How can I help you?",
+      "timestamp": 1769720644.049
+    },
+    {
+      "user": "ok so when i chat to you when I see a response the response come up brielfy in the axion screen then got to history.\n\nAlso yes if you can remove the weird characters as well please",
+      "assistant": "Done. I made two fixes:\n\n1. **Response stays visible**: After a response completes, it now selects that specific message (`selectedHistoryIndex = chatHistory.length - 1`) so it stays prominently displayed with the \"\u2190 Back to all\" button, instead of immediately jumping to the full history view.\n\n2. **Removed weird characters**: Replaced all HTML entity codes (like `&#128218;`, `&#129302;`, etc.) with actual Unicode emoji characters (\ud83d\udcda, \ud83e\udd16, \ud83d\udde3, \ud83d\udd0a, \ud83d\uddd1, \ud83c\udfa4, \ud83d\udce4, \ud83d\udcce, \ud83d\udd34, \u2039, \u2190).\n\nYou'll need to restart the relay server for the changes to take effect.",
+      "timestamp": 1769720810.779
+    },
+    {
+      "user": "can you go ahead and restart the sever can you do this aitomatciily on builds please so I can just refresh browser",
+      "assistant": "Server is running. Now whenever I edit `chat-relay.py`, the server will automatically restart. You can just refresh your browser to get the changes.\n\n**What's set up:**\n- `server-watcher.py` monitors `chat-relay.py` for changes\n- When the file is modified, it automatically kills and restarts the server\n- Also auto-restarts if the server crashes unexpectedly\n- Just refresh your browser after builds - no manual restart needed",
+      "timestamp": 1769720941.176
+    }
+  ]
+}

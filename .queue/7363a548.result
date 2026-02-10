@@ -1,0 +1,76 @@
+Your answers confirm:
+1. **Start with design mockups first** (before coding)
+2. **Create an interactive HTML playground** for design exploration
+
+Let me invoke the frontend-design skill to create a Terminator-themed design mockup.I'll create a distinctive Skynet dashboard with a Terminator-inspired aesthetic. Let me design something memorable.
+
+## Design Direction: **Military-Industrial Cyberpunk**
+
+**Concept**: A command center interface that feels like you're accessing a sentient AI defense network. Cold, precise, slightly unsettling - like Skynet itself is watching.
+
+**Key Elements**:
+- Monospace/terminal typography mixed with sharp geometric headers
+- Deep black backgrounds with scanning line effects
+- Cyan (#00d4ff) as primary "system active" color
+- Red (#ff3333) as warning/accent
+- Grid overlay patterns suggesting surveillance
+- Subtle CRT flicker and scan line effects
+- Hexagonal/geometric card designs
+- "Neural network" connecting lines between systems
+
+Let me build this:Now I'll create the Skynet dashboard in the skynet subdirectory and the InsuredHQ page:Now let me create the InsuredHQ operations page:I've created the Skynet design mockups. Let me provide you with the links.
+
+---
+
+## Skynet Design Mockups Complete
+
+I've created a production-quality, Terminator-themed design for Skynet with mobile responsiveness.
+
+### View the Designs
+
+**Central Dashboard:** [http://127.0.0.1:8800/skynet/](http://127.0.0.1:8800/skynet/)
+
+**InsuredHQ Operations:** [http://127.0.0.1:8800/skynet/insuredhq.html](http://127.0.0.1:8800/skynet/insuredhq.html)
+
+---
+
+### Design Features
+
+**Visual Theme:**
+- Military-industrial cyberpunk aesthetic inspired by Terminator/Skynet
+- Deep black background (#0a0a0f) with cyan (#00d4ff) primary accents
+- Red (#ff3333) for warnings/destructive actions
+- Subtle scan line overlay for CRT effect
+- Animated neural network background
+- Glowing ambient effects
+
+**Typography:**
+- **Orbitron** - Sharp geometric display font for headers
+- **Share Tech Mono** - Terminal-style monospace for status/code
+- **Rajdhani** - Clean body text
+
+**Components:**
+- Animated Skynet logo with targeting reticle
+- System cards with hover glow effects
+- Live status indicators with pulse animations
+- Color-coded HTTP methods (GET=cyan, POST=green, PUT=yellow, DELETE=red)
+- Responsive sidebar navigation
+- Search functionality
+
+**All 24 InsuredHQ Operations:**
+- Claims (6): List, Get, Create, Update, Delete, Status
+- Policies (3): List, Get, Validate Coverage
+- Clients (4): List, Get, Create, Update
+- Documents (3): Upload, Get, Delete
+- Accounts (8): All financial operations
+
+**Mobile Responsive:**
+- Collapsible sidebar on tablet/mobile
+- Stacked card layouts
+- Touch-friendly targets
+
+---
+
+### Next Steps
+
+Ready to proceed with `/plan-feature` to create the implementation plan for the Python FastAPI backend?

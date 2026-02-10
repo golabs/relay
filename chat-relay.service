@@ -1,0 +1,15 @@
+[Unit]
+Description=Chat Relay Web UI
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/clawd/projects/relay/chat-relay.py
+WorkingDirectory=/opt/clawd/projects/relay
+Restart=always
+RestartSec=5
+User=axion
+Environment=HOME=/home/axion
+
+[Install]
+WantedBy=multi-user.target

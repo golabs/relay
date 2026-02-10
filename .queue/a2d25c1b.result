@@ -1,0 +1,35 @@
+I need more context about what header styling issue you're experiencing. Let me ask for clarification:Since you mentioned "fix the header styling issue" without specifics, let me quickly investigate the current header state - particularly the logout button I just added, which is the most recent change:## Debug Report: Header Styling Issues Found
+
+The investigation found **2 actual issues** and **1 minor cleanup**:
+
+### Issues Identified
+
+| # | Issue | Severity | Description |
+|---|-------|----------|-------------|
+| 1 | Missing `#mobilePanelLabel` CSS | **HIGH** | The AXION/BRETT label in mobile view has no styling - inherits defaults |
+| 2 | Conflicting button classes | **MEDIUM** | `.icon-btn` + `.new-project-btn` on same element causes dimension conflicts |
+| 3 | Dead `.health-text` CSS | LOW | Element was removed but CSS remains |
+
+### Quick Fixes
+
+Would you like me to fix these issues? Here's what I'd do:
+
+**Fix 1:** Add CSS for the mobile panel label
+```css
+#mobilePanelLabel {
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-bright);
+}
+```
+
+**Fix 2:** Update the new project button to avoid class conflicts
+
+**Fix 3:** Remove dead CSS for `.health-text`
+
+---
+
+If you're seeing a **different** header issue (like something specific with the logout button, colors, or alignment), please describe what you're seeing and I'll dig deeper.
+
+Should I proceed with these fixes?

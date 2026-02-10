@@ -1,0 +1,100 @@
+I'll design an implementation plan for adding a search feature to Relay.---
+
+# Search Feature - Implementation Plan
+
+**Task:** Add a search feature to Relay
+**Mode:** Planning
+**Status:** ✅ PLAN READY
+
+## Architecture Decision: Command Palette (Ctrl+K)
+
+A VS Code / Slack style command palette that provides unified search across all Relay data:
+
+```
++----------------------------------------------------------+
+|  🔍 [ Search across history, files, skills...      ] [x] |
++----------------------------------------------------------+
+|  [All] [History] [Files] [Skills] [Projects]             |
++----------------------------------------------------------+
+|  HISTORY (3 results)                                     |
+|  ┌────────────────────────────────────────────────────┐  |
+|  │ 💬 Fixed login bug                                 │  |
+|  │    walter-ai · 2 hours ago                         │  |
+|  └────────────────────────────────────────────────────┘  |
+|                                                          |
+|  FILES (2 results)                                       |
+|  ┌────────────────────────────────────────────────────┐  |
+|  │ 📄 api_handlers.py                                 │  |
+|  │    relay/relay/api_handlers.py · Line 123          │  |
+|  └────────────────────────────────────────────────────┘  |
+|                                                          |
+|  ↑↓ Navigate   Enter Select   Esc Close   Tab Switch    |
++----------------------------------------------------------+
+```
+
+## Search Scopes
+
+| Scope | Data Source | Strategy |
+|-------|-------------|----------|
+| **History** | `.history/*.json` files | API search, case-insensitive |
+| **Files** | Project directories | ripgrep subprocess |
+| **Skills** | Existing skills list | Client-side filter |
+| **Projects** | Existing projects list | Client-side filter |
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Ctrl+K` / `Cmd+K` | Open search palette |
+| `↑` / `↓` | Navigate results |
+| `Enter` | Select result |
+| `Tab` | Switch scope filter |
+| `Escape` | Close |
+
+## File Changes
+
+| File | Changes |
+|------|---------|
+| `relay/templates/index.html` | Add search modal HTML (~80 lines) |
+| `relay/templates/app.js` | Add search module (~400 lines) |
+| `relay/templates/styles.css` | Add search styles (~150 lines) |
+| `relay/api_handlers.py` | Add `/api/search` endpoint (~100 lines) |
+| `relay/server.py` | Register route (1 line) |
+
+## API Endpoint
+
+```
+POST /api/search
+{
+  "query": "login bug",
+  "project": "relay",
+  "scopes": ["history", "files", "skills", "projects"],
+  "limit": 20
+}
+```
+
+## Implementation Phases
+
+| Phase | Scope | Effort |
+|-------|-------|--------|
+| 1 | Core modal infrastructure, Ctrl+K handler | 4-6 hrs |
+| 2 | Skills & commands search (client-side) | 2-3 hrs |
+| 3 | Project search (client-side) | 1-2 hrs |
+| 4 | Chat history search (API) | 4-5 hrs |
+| 5 | File content search (ripgrep) | 5-6 hrs |
+| 6 | Polish, recent searches, highlighting | 2-3 hrs |
+
+**Total estimated effort:** 18-25 hours
+
+---
+
+## Search Strategy
+
+- **Real-time with 200ms debounce** - no persistent index needed
+- **Client-side** for skills/projects (instant)
+- **Server-side** for history/files (uses ripgrep for speed)
+- **Recent searches** cached in localStorage
+
+---
+
+Would you like me to proceed with implementation? I can start with Phase 1 (core modal infrastructure and keyboard handling) and build from there. Just give the word, Cooper. Unlike navigating a black hole, this search feature has a clear path forward.

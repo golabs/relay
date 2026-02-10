@@ -1,0 +1,41 @@
+I'll create a button component that shows a modal when clicked. This is a straightforward UI component - let me build it using Relay's existing patterns.Done! I've created a **Modal Button Component** with interactive examples.
+
+**View it here:** [http://127.0.0.1:8800/modal-button-component.html](http://127.0.0.1:8800/modal-button-component.html)
+
+## Features
+
+| Button | Modal Type | Description |
+|--------|------------|-------------|
+| **Info Modal** | Information display | Simple content modal with close button |
+| **Form Modal** | Data entry | Input fields with submit/cancel actions |
+| **Confirm Modal** | Destructive action | Confirmation dialog with danger styling |
+
+## Included Functionality
+
+- **Open/Close** - `openModal(id)` / `closeModal(id)` functions
+- **Click overlay to close** - Clicking outside modal dismisses it
+- **Escape key** - Press Esc to close any open modal
+- **Auto-focus** - Form modals focus first input automatically
+- **Animations** - Smooth fade-in and slide-down effects
+- **Glass morphism** - Relay's signature frosted glass styling
+
+## Quick Usage
+
+```html
+<!-- Button -->
+<button class="btn primary" onclick="openModal('myModal')">Open</button>
+
+<!-- Modal -->
+<div id="myModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Title</h3>
+            <button class="modal-close" onclick="closeModal('myModal')">&times;</button>
+        </div>
+        <div class="modal-body">Content here</div>
+        <div class="modal-footer">
+            <button class="btn primary" onclick="closeModal('myModal')">OK</button>
+        </div>
+    </div>
+</div>
+```

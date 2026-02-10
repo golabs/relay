@@ -1,0 +1,35 @@
+I was already implementing this. Let me continue - I've added the CSS and flash prevention script. Now I need to add the theme toggle UI to the Display Settings modal and the JavaScript functions.The theme toggle UI is already in place (lines 330-338). Now I need to add the JavaScript functions. Let me find where the display settings functions are in app.js:I need to add the theme functions and update `openDisplaySettings` to show the active theme. Let me add the theme functions right before the display settings section:I see there's already an `updateThemeButtons()` call in `openDisplaySettings`. Now I need to add the theme functions. Let me add them right before the display settings section:Done! The dark/light mode toggle has been implemented. Here's a summary:
+
+## Implementation Complete: Theme Toggle
+
+### What Was Added
+
+| File | Changes |
+|------|---------|
+| `styles.css` | Added `[data-theme="light"]` CSS block with ~90 lines of light theme overrides |
+| `index.html` | Added flash-prevention script in `<head>`, ID on highlight.js link |
+| `index.html` | Theme toggle UI already existed in Display Settings modal (lines 330-338) |
+| `app.js` | Added theme system functions (~55 lines): `setTheme()`, `applyTheme()`, `updateThemeButtons()` |
+
+### How It Works
+
+1. **Three Options:**
+   - 🌙 **Dark** - Cyberpunk Aurora theme (default)
+   - ☀️ **Light** - Clean light theme with adjusted colors
+   - 💻 **Auto** - Follows system preference (`prefers-color-scheme`)
+
+2. **Access:** Click the **◫** (Display Settings) button in the header
+
+3. **Features:**
+   - No flash on page load (inline script applies theme before CSS)
+   - Persisted in `localStorage` as `relayTheme`
+   - Auto-updates when system preference changes (if "Auto" selected)
+   - Highlight.js syntax theme switches automatically
+
+### Storage
+
+```javascript
+localStorage.getItem('relayTheme')  // 'dark', 'light', or 'system'
+```
+
+The theme toggle is now live in Relay's Display Settings modal.

@@ -1,0 +1,36 @@
+I see the QUESTIONS.md file still has unanswered questions. Before I can proceed, I need your input on these design decisions:
+
+---
+
+## Questions Requiring Answers
+
+**Q1: Mobile Navigation Approach**
+Should we keep the existing bottom mobile navigation bar OR replace it with a hamburger menu like Walter?
+
+- **A)** Keep bottom nav (users familiar with mobile apps)
+- **B)** Replace with hamburger menu (consistent with Walter)
+- **C)** Use both (hamburger for sidebar items, bottom nav for main actions)
+
+---
+
+**Q2: Two-Panel Screen Layout (TasksWorkflowScreen)**
+How should the InsuredListPanel and ClaimsByInsuredPanel display on mobile?
+
+- **A)** Stack vertically (Insured list on top, Policies below)
+- **B)** Use tabs (Tab 1: Insured List, Tab 2: Policies)
+- **C)** Show only one panel with toggle button
+
+---
+
+**Q3: Mobile Viewport Testing Priority**
+Which viewport sizes should we prioritize?
+
+- **A)** All three (320px, 375px, 414px)
+- **B)** Focus on 375px (most common)
+- **C)** Focus on 320px minimum (ensures all sizes work)
+
+---
+
+Please answer these questions, then say **"Proceed with implementation"** when ready.
+
+The full implementation plan is in `.claude/OUTPUT.md` - ready for your review.

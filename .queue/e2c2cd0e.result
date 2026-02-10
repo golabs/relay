@@ -1,0 +1,55 @@
+I understand your requests clearly. Let me address them:## Task 1: Remove sticky from LIVE box## Task 2: Add popup/detach feature for LIVE boxNow add CSS for the popup button and popup mode:Now add the JavaScript function for toggling popup mode and making it draggable:## Task 3: Fix orchestrate text - must be at END not top
+
+I already changed this earlier but let me verify it's working. The issue is that the orchestrate/agent mode context is still appearing at the TOP. Let me check the current code:The code looks correct - context goes at END. But the Smart Send formatted text includes the context at the top via the API. Let me check the API's structured task format:The API structured format is correct - Mode is at the bottom in Technical Notes. The problem is likely in how the final message is assembled. Let me check where the orchestrate context gets added AFTER the smart send formatted text:I see! The problem is:
+
+1. Smart Send creates formatted text
+2. Then `prepareMessageWithAgentContext` is called which adds `[AGENT MODE: ...]` context
+3. This happens AFTER Smart Send formatting, so context gets added to the already-formatted text
+
+But looking at line 2876: `textWasFormatted ? text : prepareMessageWithAgentContext(text)` - if Smart Send ran, `textWasFormatted` should be true and we skip adding context. Let me check:I see - `textWasFormatted` is only set to true by the preview/format functions, not by Smart Send itself! Let me check Smart Send:Found it! Smart Send sets `text = formattedText` but never sets `textWasFormatted = true`, so the next step STILL runs `prepareMessageWithAgentContext` which adds the context AGAIN. Let me fix this:## Task 4: Smart Send should use Claude format API
+
+You want Smart Send to use Claude to properly format/clean up the text (like the Format button does) before sending. Let me add that:I see - the Format feature uses a job-based API with polling. This would add significant delay to Smart Send. Let me check if there's a simpler synchronous format option, or if we should call the same format API but wait for it to complete.
+
+Actually, for Smart Send, I'll integrate the format API call before generating the structured task. The Smart Send should:
+1. Call format API to clean up text with Claude
+2. Then generate structured task from the cleaned textThe Format API uses Claude which adds significant latency. For now, let me add an option to the Smart Send that calls a quick format step. Let me update the API to include a quick format using Claude:The current Smart Send does local analysis (fast, no Claude API). Adding Claude formatting would add 2-5 seconds per message. Let me add an **optional** Claude formatting step that can be enabled/disabled.
+
+For now, let me add a `use_claude_format` option to the API and frontend:Now let me add a setting in the frontend to enable Claude formatting for Smart Send:Now update the API call to include the use_claude_format option:I'll continue with the work from the previous session. Let me run a Playwright test to verify all the changes are working correctly.Let me check the LIVE activity box and related styles to verify the changes were applied correctly.Good, the changes are there. Let me read the CSS for the live-activity-box to verify the sticky was removed.All the changes from the previous session are in place. Let me now create and run a Playwright test to verify everything works correctly.The test shows:
+- LIVE box position is now `relative` (not sticky) 
+- Popup button exists and works
+- Popup mode toggles on
+
+There's a minor issue: clicking the LIVE indicator to dock isn't toggling off properly. Let me check the toggle function more closely.I see - both the LIVE indicator and the popup button call `toggleLivePopup()`. The issue is when the popup button was clicked, it popped the window out. Then clicking the LIVE indicator _should_ dock it, but the test shows it stayed in popup mode. 
+
+Let me check if the issue is with the event propagation or the function logic.The issue is that when clicking the `.live-indicator`, the event bubbles up and also triggers the header's mousedown for dragging, which might interfere. Also, I see the `makeDraggable` adds event listeners each time the box is popped out - we need to prevent multiple event listener additions.
+
+Let me fix both issues:Now update the HTML onclick handlers to pass the event:Now let's run the test again to verify the toggle works properly:All tests pass now:
+- LIVE box position is `relative` (not sticky - scrolls naturally)
+- Popup button exists and works
+- Clicking the LIVE indicator successfully docks the box (popup mode: false)
+
+Let me read one of the screenshots to verify the UI looks good:The screenshot shows the LIVE box working correctly:
+1. **Popup mode is active** - The LIVE box is popped out with a cyan border and the toast message "LIVE box popped out - drag to move, click ● LIVE to dock"
+2. **Smart Send formatted content** - Shows "You: Create a simple button component" followed by the structured format with "Overview", "User Story", etc.
+3. **Content is visible** - The formatted task structure is displaying properly in the LIVE box
+
+Let me check the final screenshot to see the completed state:Excellent! The final screenshot shows everything working perfectly:
+
+1. **LIVE box docked** - It's now back in its normal position (docked mode, not popup)
+2. **Scrollable content** - The LIVE box shows the full structured format including:
+   - "You: Create a simple button component"
+   - "Overview" section
+   - "User Story" section with the proper format (As a developer / I want to... / So that...)
+   - "Requirements" section is visible at the bottom
+3. **Popup button (⤢)** - Visible in the header for popping out
+4. **Status** - Shows "Analyzing..." as Claude processes the job
+5. **No sticky** - The LIVE box is positioned naturally within the AXION panel
+
+All the requested features from the TASK.md are now complete:
+
+1. **Remove sticky from LIVE** - Done (position: relative)
+2. **Add popup/detach feature** - Done (click ● LIVE or ⤢ button to toggle)
+3. **Fix orchestrate text at END** - Done (textWasFormatted flag prevents double context)
+4. **Smart Send uses Claude format** - Done (optional use_claude_format parameter)
+
+The user should refresh their browser (Ctrl+Shift+R) to see all the new features working.

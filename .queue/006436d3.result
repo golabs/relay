@@ -1,0 +1,41 @@
+Let me look at the new screenshots to see the remaining issues.I can see the remaining issues:
+
+1. **Screenshot 1 (Domain Management)**: "Add Domain" button is bleeding off the right edge, "WALTER Dev" text is cut off
+2. **Screenshot 2 (Claims)**: "New Claim" button looks fine, but the page title "Claims" is partially hidden behind the hamburger menu
+3. **Screenshot 3 (Quotes)**: "Search by p..." is cut off, "Pending Acceptance" badge is bleeding right
+4. **Screenshot 4 (Tasks)**: Status filter buttons "in progress" and "com..." are bleeding off the right, "low" button cut off
+
+Let me fix these pages. I need to find the relevant components.Now I can see the issues. Let me also check the Quotes page to see where the "Search by p..." is coming from:Now I have all the files. Let me fix them one by one:Now fix the Claims page header:Now fix the Tasks page filter buttons:Now let me fix the QuoteHistoryV2 page which shows the "Search by p..." that's cut off:Now let me run the build to make sure everything compiles:All fixes have been applied and the build succeeded. Here's a summary of the additional mobile fixes:
+
+## Additional Mobile Fixes Applied
+
+### 1. **Domain Management** (`DomainManagement.tsx`)
+- Header now stacks vertically on mobile with responsive padding
+- "Add Domain" button is full-width on mobile
+- Table has horizontal scroll on mobile with `overflow-x-auto`
+- Some columns hidden on mobile (Contract Date, Users, Default Role)
+- Shortened button text "Deactivate" → "Off" / "Activate" → "On"
+
+### 2. **Claims Page** (`ClaimsPage.tsx`)
+- Added `pt-10 sm:pt-0` to header for hamburger menu clearance
+- Header stacks vertically on mobile
+- Filters stack vertically on mobile
+- Search box is full width on mobile
+- Status dropdown is narrower on mobile
+
+### 3. **Tasks Page** (`Tasks.tsx`)
+- Added `pt-10 sm:pt-0` for hamburger menu clearance
+- Header stacks vertically on mobile
+- Search box is full width
+- Filter buttons have horizontal scroll with `overflow-x-auto`
+- Shortened labels: "in_progress" → "progress", "completed" → "done"
+
+### 4. **Quote History V2** (`QuoteHistoryV2.tsx`)
+- Added `pt-10 sm:pt-0` for hamburger clearance
+- Header stacks vertically on mobile
+- Refresh/Filters buttons hide text on mobile (icons only)
+- Search placeholder shortened to "Search quotes..."
+- Select All section hidden on mobile
+- Filter pills have horizontal scroll
+
+All pages now have `overflow-x-hidden` to prevent horizontal scrolling on the viewport level.

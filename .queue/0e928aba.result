@@ -1,0 +1,81 @@
+I'll design a user profile page with avatar upload for Relay. Let me first understand what user/profile infrastructure exists.Excellent research. Now let me design the complete profile page with avatar upload:---
+
+## Orchestration Complete: User Profile Page Design
+
+**Task:** Create a user profile page with avatar upload
+**Mode:** Plan
+**Agents Used:** 2 (Researcher + Architect)
+**Status:** ✅ DESIGN COMPLETE
+
+---
+
+## Summary
+
+A complete user profile system with avatar upload, following all existing Relay patterns.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Avatar Upload** | Click to upload, 5MB max, PNG/JPG/GIF/WebP support |
+| **Avatar Preview** | Live preview before saving |
+| **Username** | 50 character limit |
+| **Bio** | 200 character limit with counter |
+| **Header Avatar** | Shows in header when set |
+| **Persistence** | localStorage (`userProfile` key) |
+
+### UI Preview
+
+```
+┌────────────────────────────────────┐
+│ User Profile                    ✕  │
+├────────────────────────────────────┤
+│                                    │
+│         ┌──────────┐               │
+│         │   👤     │  ← Click to   │
+│         │  Change  │    upload     │
+│         └──────────┘               │
+│       [Remove Avatar]              │
+│                                    │
+│  USERNAME                          │
+│  ┌────────────────────────────┐   │
+│  │ John Doe                   │   │
+│  └────────────────────────────┘   │
+│                                    │
+│  BIO                               │
+│  ┌────────────────────────────┐   │
+│  │ Developer and coffee       │   │
+│  │ enthusiast...              │   │
+│  └────────────────────────────┘   │
+│                          45/200    │
+│                                    │
+│        [Cancel]  [Save Profile]    │
+└────────────────────────────────────┘
+```
+
+### Files to Change
+
+| File | Changes | Lines |
+|------|---------|-------|
+| `server.py` | Add `/api/upload/avatar` endpoint | ~50 |
+| `index.html` | Add modal + header button | ~50 |
+| `styles.css` | Add profile styling | ~120 |
+| `app.js` | Add profile functions | ~150 |
+
+### Data Schema
+
+```javascript
+// localStorage key: 'userProfile'
+{
+    "username": "John Doe",
+    "bio": "Developer and coffee enthusiast",
+    "avatarUrl": "/screenshots/avatar_1707985200_abc123.png",
+    "updatedAt": "2024-02-15T10:00:00.000Z"
+}
+```
+
+---
+
+### Next Steps
+
+Would you like me to **implement this design**? I can execute it now - the plan is fully specified and ready to build.

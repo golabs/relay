@@ -1,0 +1,61 @@
+I'll design a plan for adding a Chat History Search feature, which the research identified as the highest-value missing feature.---
+
+## Orchestration Complete: Chat History Search Design
+
+**Task:** Add a search feature
+**Mode:** Plan
+**Agents Used:** 2 (Researcher + Architect)
+**Status:** ✅ DESIGN COMPLETE
+
+---
+
+## Summary
+
+I've designed a **Chat History Search** feature - the highest-value missing search capability based on the research.
+
+### What It Does
+
+| Feature | Description |
+|---------|-------------|
+| **Text Search** | Filter history by keywords in user or assistant messages |
+| **Date Filter** | Optional date range filtering (📅 toggle) |
+| **Highlighting** | Matching text highlighted in cyan |
+| **Results Count** | Shows "X of Y matches" during search |
+| **Clear Button** | Quick ✕ to reset search |
+
+### UI Location
+
+```
+┌─────────────────────────────┐
+│ History        [📅] [🗑] [↻] │
+├─────────────────────────────┤
+│ [🔍 Search messages...   ✕] │  ← NEW
+│ [From: ___] - [To: ___]     │  ← NEW (hidden by default)
+├─────────────────────────────┤
+│ 5 of 42 matches             │  ← NEW (when searching)
+├─────────────────────────────┤
+│ ☐ 2024-02-09 • How do I...  │
+│ ☐ 2024-02-08 • Fix the <hl> │  ← highlighted match
+│ ...                         │
+└─────────────────────────────┘
+```
+
+### Files to Change
+
+| File | Changes |
+|------|---------|
+| `index.html` | Add search input + date filter (~15 lines) |
+| `styles.css` | Add search styling (~60 lines) |
+| `app.js` | Add filter functions + modify `renderHistorySidebar()` (~80 lines) |
+
+### Key Design Decisions
+
+- **Client-side only** - No backend changes needed (filters loaded `chatHistory` array)
+- **Max 100 entries** - Linear search is fast enough, no debouncing required
+- **Non-persistent** - Search clears on page refresh (intentional)
+
+---
+
+### Next Steps
+
+Would you like me to **implement this design**? I can execute it now - it's a focused change across 3 files.

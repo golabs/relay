@@ -1,0 +1,23 @@
+## What This File Does
+
+This is the main startup file for a "Chat Relay" application that creates a web-based chat interface for communicating with Claude AI. Think of it like the power button or front door of a house - when you run this file, it starts up the entire chat system. The file itself is very simple and acts more like a receptionist who directs you to the right department, because all the actual work (like running the web server, handling messages, and displaying the chat interface) is done by other specialized files organized in a "relay" folder.
+
+## Key Components
+
+**Shebang Line (#!/usr/bin/env python3):** This first line tells the computer "this is a Python 3 program" - like putting a label on a box saying what's inside so the computer knows how to open it.
+
+**Documentation Comment:** The large comment block at the top acts like a building directory or map, explaining what this program does and listing where all the important components are located in other files (like config.py for settings, server.py for the web server, api_handlers.py for processing messages, etc.).
+
+**Import Statements:** The lines starting with `import` and `from` are like making phone calls to other departments - specifically asking the system to locate and prepare the other files this program needs to work.
+
+**Path Setup Code:** The `sys.path.insert` line is like giving the program a GPS or address book so it knows exactly where to find the other files it needs in the relay folder.
+
+**Main Execution Block:** The final `if __name__ == "__main__":` section is like a security check that says "only run this if someone directly started this file" and then calls the main function to actually start everything up.
+
+## How It Works
+
+This file works like a simple but smart power switch for the entire chat system. When someone runs this file (by typing `python chat-relay.py` in a terminal or double-clicking it), the computer first reads the documentation to understand what the program does. Then it sets up the navigation system so the program knows where to find all its components in the relay folder. Next, it contacts the server module (like calling the main office) and asks for the main startup function. Finally, it runs that function, which actually launches the web server and creates the chat interface that people can use in their web browser. Think of it like pressing the power button on a complex entertainment system - this file handles the startup sequence, but the actual TV, sound system, and streaming services are all separate components that work together.
+
+## Important Things to Know
+
+This file demonstrates good software architecture by using a modular design, where different functions are separated into specialized files rather than cramming everything into one large file. This makes the system much easier to understand, maintain, and modify - like having different rooms in a house for different purposes instead of living in one giant room. The file serves as a "launcher" that doesn't contain the actual chat functionality itself, but rather coordinates starting up all the real components. This is a professional approach that makes it easy to update individual parts (like the web interface or message handling) without affecting the whole system. When someone wants to start the chat relay system, this is the file they would run, and it handles all the behind-the-scenes setup needed to get the web-based chat interface running in their browser.

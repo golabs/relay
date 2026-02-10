@@ -1,0 +1,41 @@
+*squints at screen*
+
+I see the problem. On mobile, the bottom action buttons are getting cut off by the phone's navigation bar. Classic mobile viewport issue.
+
+Let me find and fix the Relay frontend CSS.Let me look at the mobile-specific styles and find where the bottom buttons are defined.Found it! The `.mobile-history-actions` at line 3282 has buttons at the bottom. The issue is they're getting cut off by the phone's navigation bar. I need to add `padding-bottom` with `env(safe-area-inset-bottom)` for iOS or just extra padding.Now let me also check if there's a general mobile container that needs the safe area treatment - the whole app might need it.Let me add a viewport-fit and safe-area support at the root level for iOS devices.Now let me also check the HTML template to ensure the viewport meta tag has `viewport-fit=cover` for iOS.Done. Let me summarize the fixes:
+
+---
+
+## Fixed: Mobile Bottom Buttons Cut Off
+
+**Changes made:**
+
+1. **`styles.css` line 6** — Added iOS safe area support:
+   ```css
+   @supports (padding-bottom: env(safe-area-inset-bottom)) {
+       .main, .response-pane, .mobile-history-container {
+           padding-bottom: env(safe-area-inset-bottom, 0);
+       }
+   }
+   ```
+
+2. **`styles.css` line 3285** — Added safe area padding to history action buttons:
+   ```css
+   padding-bottom: calc(12px + env(safe-area-inset-bottom, 20px));
+   ```
+
+3. **`index.html` line 5** — Added `viewport-fit=cover` for iOS:
+   ```html
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+   ```
+
+---
+
+**What this does:**
+- On iOS devices with the home indicator bar, adds extra padding at the bottom
+- On Android devices with navigation gestures, respects the system's safe area
+- Fallback of 20px extra padding on devices that don't report safe areas
+
+---
+
+*Refresh the page on your phone and those buttons should now be fully visible above the navigation bar.*

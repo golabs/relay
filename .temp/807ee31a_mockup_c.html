@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RELAY - Aurora Glass Morphism</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================
+           RELAY - VARIATION C: AURORA GLASS MORPHISM
+           ============================================ */
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --aurora-purple: #7b2fbe;
+            --aurora-teal: #0fbcb6;
+            --aurora-blue: #1a1a4e;
+            --aurora-pink: #e84393;
+            --aurora-magenta: #c44bdb;
+            --aurora-deep: #0a0a1a;
+            --aurora-cyan: #00cec9;
+            --glass-bg: rgba(255, 255, 255, 0.06);
+            --glass-bg-hover: rgba(255, 255, 255, 0.10);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-hover: rgba(255, 255, 255, 0.22);
+            --text-primary: #f0f0ff;
+            --text-secondary: rgba(220, 220, 255, 0.55);
+            --text-glow: 0 0 20px rgba(127, 90, 240, 0.4), 0 0 40px rgba(0, 206, 201, 0.15);
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* ===== ANIMATED AURORA BACKGROUND ===== */
+        body {
+            background: var(--aurora-deep);
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                #0a0a1a 0%,
+                #1a0a3e 10%,
+                #0d2b45 18%,
+                #0a4040 25%,
+                #0fbcb6 32%,
+                #0a3a3a 40%,
+                #1a1a4e 48%,
+                #7b2fbe 55%,
+                #2d1b69 62%,
+                #4a1942 68%,
+                #e84393 74%,
+                #6c2c70 80%,
+                #1a1a4e 86%,
+                #0d2b45 92%,
+                #0a0a1a 100%
+            );
+            background-size: 400% 400%;
+            animation: auroraShift 25s ease-in-out infinite;
+            z-index: 0;
+            opacity: 0.8;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 20% 50%, rgba(11, 188, 182, 0.15) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 20%, rgba(123, 47, 190, 0.2) 0%, transparent 40%),
+                        radial-gradient(ellipse at 60% 80%, rgba(232, 67, 147, 0.12) 0%, transparent 45%),
+                        radial-gradient(ellipse at 30% 30%, rgba(0, 206, 201, 0.1) 0%, transparent 35%);
+            animation: auroraShift2 30s ease-in-out infinite reverse;
+            background-size: 300% 300%;
+            z-index: 0;
+        }
+
+        @keyframes auroraShift {
+            0% { background-position: 0% 50%; }
+            25% { background-position: 50% 0%; }
+            50% { background-position: 100% 50%; }
+            75% { background-position: 50% 100%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes auroraShift2 {
+            0% { background-position: 0% 0%; }
+            33% { background-position: 100% 50%; }
+            66% { background-position: 50% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+
+        /* ===== SVG PARTICLE SYSTEM ===== */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0;
+            animation: particleFloat linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(100vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+                transform: translateY(80vh) translateX(10px) scale(1);
+            }
+            50% {
+                opacity: 0.3;
+                transform: translateY(40vh) translateX(-15px) scale(0.8);
+            }
+            90% {
+                opacity: 0.1;
+                transform: translateY(5vh) translateX(20px) scale(0.4);
+            }
+            100% {
+                transform: translateY(-5vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* ===== APP CONTAINER ===== */
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== GLASS MORPHISM BASE ===== */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        .glass:hover {
+            background: var(--glass-bg-hover);
+            border-color: var(--glass-border-hover);
+        }
+
+        /* ===== ANIMATED GRADIENT BORDERS ===== */
+        .aurora-border {
+            position: relative;
+        }
+
+        .aurora-border::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: inherit;
+            background: linear-gradient(
+                var(--border-angle, 0deg),
+                rgba(123, 47, 190, 0.5),
+                rgba(15, 188, 182, 0.5),
+                rgba(232, 67, 147, 0.5),
+                rgba(0, 206, 201, 0.5),
+                rgba(123, 47, 190, 0.5)
+            );
+            z-index: -1;
+            animation: rotateBorderGradient 6s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes rotateBorderGradient {
+            0% { --border-angle: 0deg; filter: hue-rotate(0deg); }
+            100% { --border-angle: 360deg; filter: hue-rotate(30deg); }
+        }
+
+        @property --border-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        /* ===== THIN GLASS SCROLLBARS ===== */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(123, 47, 190, 0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(123, 47, 190, 0.5); }
+        * { scrollbar-width: thin; scrollbar-color: rgba(123, 47, 190, 0.3) transparent; }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(10, 10, 30, 0.4);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+            z-index: 20;
+        }
+
+        /* Header gradient shine */
+        .header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(15, 188, 182, 0.4) 20%,
+                rgba(123, 47, 190, 0.6) 40%,
+                rgba(232, 67, 147, 0.4) 60%,
+                rgba(0, 206, 201, 0.5) 80%,
+                transparent 100%
+            );
+            animation: headerShine 8s ease-in-out infinite;
+        }
+
+        @keyframes headerShine {
+            0%, 100% { opacity: 0.5; background-position: -200% 0; }
+            50% { opacity: 1; background-position: 200% 0; }
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #fff 0%, #c4b5fd 40%, #67e8f9 70%, #f0abfc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            filter: drop-shadow(0 0 12px rgba(123, 47, 190, 0.4));
+        }
+
+        .header-center { display: flex; gap: 6px; align-items: center; }
+        .header-controls { display: flex; gap: 6px; align-items: center; }
+
+        /* Workflow buttons - glass pills */
+        .workflow-btn {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .workflow-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .workflow-btn:hover::before {
+            left: 100%;
+        }
+
+        .workflow-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(123, 47, 190, 0.4);
+            box-shadow: 0 0 20px rgba(123, 47, 190, 0.15);
+        }
+
+        .workflow-btn .step-num {
+            background: rgba(123, 47, 190, 0.3);
+            color: #c4b5fd;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        /* Health indicator */
+        .health-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .health-indicator:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .health-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+            box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+            animation: healthPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes healthPulse {
+            0%, 100% { box-shadow: 0 0 4px rgba(63, 185, 80, 0.4); }
+            50% { box-shadow: 0 0 12px rgba(63, 185, 80, 0.8); }
+        }
+
+        .health-text {
+            font-size: 11px;
+            color: #3fb950;
+            font-weight: 500;
+        }
+
+        /* Project select */
+        .project-select {
+            padding: 6px 10px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 120px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .project-select:hover, .project-select:focus {
+            border-color: rgba(123, 47, 190, 0.4);
+            box-shadow: 0 0 15px rgba(123, 47, 190, 0.1);
+        }
+
+        .project-select option {
+            background: #1a1a2e;
+            color: var(--text-primary);
+        }
+
+        /* Icon buttons */
+        .icon-btn {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(10px);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Inner light reflection on glass buttons */
+        .icon-btn::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+            border-radius: 10px 10px 0 0;
+            pointer-events: none;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(123, 47, 190, 0.2);
+        }
+
+        .icon-btn:active {
+            transform: translateY(0);
+        }
+
+        .icon-btn.primary {
+            background: linear-gradient(135deg, rgba(123, 47, 190, 0.4), rgba(15, 188, 182, 0.3));
+            border-color: rgba(123, 47, 190, 0.4);
+            box-shadow: 0 2px 10px rgba(123, 47, 190, 0.2);
+        }
+
+        .icon-btn.primary:hover {
+            background: linear-gradient(135deg, rgba(123, 47, 190, 0.6), rgba(15, 188, 182, 0.5));
+            box-shadow: 0 4px 20px rgba(123, 47, 190, 0.35);
+        }
+
+        /* ===== SEND BUTTON GLOW RING ===== */
+        .send-btn {
+            position: relative;
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(123, 47, 190, 0.5), rgba(15, 188, 182, 0.4));
+            border: 1px solid rgba(123, 47, 190, 0.5);
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .send-btn::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 14px;
+            background: conic-gradient(
+                from 0deg,
+                rgba(123, 47, 190, 0.6),
+                rgba(15, 188, 182, 0.6),
+                rgba(232, 67, 147, 0.6),
+                rgba(0, 206, 201, 0.6),
+                rgba(123, 47, 190, 0.6)
+            );
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            animation: spinGlow 3s linear infinite;
+        }
+
+        .send-btn:hover::before {
+            opacity: 1;
+        }
+
+        .send-btn:hover {
+            background: linear-gradient(135deg, rgba(123, 47, 190, 0.7), rgba(15, 188, 182, 0.6));
+            box-shadow: 0 0 30px rgba(123, 47, 190, 0.4), 0 0 60px rgba(15, 188, 182, 0.15);
+            transform: translateY(-1px);
+        }
+
+        @keyframes spinGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ===== MAIN LAYOUT ===== */
+        .main {
+            display: flex;
+            flex: 1;
+            gap: 8px;
+            padding: 8px;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== GLASS PANELS ===== */
+        .panel {
+            display: flex;
+            flex-direction: column;
+            background: rgba(10, 10, 30, 0.35);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            transition: all 0.4s ease;
+        }
+
+        .panel:hover {
+            background: rgba(10, 10, 30, 0.42);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* Animated gradient border effect via pseudo-element */
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: 16px;
+            background: linear-gradient(
+                var(--border-angle, 0deg),
+                rgba(123, 47, 190, 0.25),
+                rgba(15, 188, 182, 0.2),
+                rgba(232, 67, 147, 0.15),
+                transparent,
+                transparent,
+                rgba(0, 206, 201, 0.2),
+                rgba(123, 47, 190, 0.25)
+            );
+            z-index: -1;
+            animation: rotateBorderGradient 8s linear infinite;
+        }
+
+        /* History Sidebar */
+        .history-panel {
+            width: 240px;
+            min-width: 240px;
+        }
+
+        /* AXION Response Panel */
+        .response-panel {
+            flex: 1.2;
+            min-width: 0;
+        }
+
+        /* BRETT Input Panel */
+        .input-panel {
+            flex: 0.8;
+            min-width: 0;
+        }
+
+        /* Panel headers */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.02);
+            flex-shrink: 0;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-shadow: var(--text-glow);
+        }
+
+        .panel-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ===== LIVE ACTIVITY BOX ===== */
+        .live-box {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: rgba(10, 10, 40, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(123, 47, 190, 0.2);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+            position: relative;
+            overflow: hidden;
+            animation: liveBoxBreathing 4s ease-in-out infinite;
+        }
+
+        /* Breathing aurora glow around border */
+        .live-box::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 13px;
+            background: conic-gradient(
+                from var(--border-angle, 0deg),
+                rgba(123, 47, 190, 0.4),
+                rgba(15, 188, 182, 0.3),
+                rgba(232, 67, 147, 0.3),
+                rgba(0, 206, 201, 0.4),
+                rgba(123, 47, 190, 0.4)
+            );
+            z-index: -1;
+            animation: rotateBorderGradient 5s linear infinite;
+        }
+
+        @keyframes liveBoxBreathing {
+            0%, 100% {
+                box-shadow: 0 0 15px rgba(123, 47, 190, 0.1),
+                            0 0 30px rgba(15, 188, 182, 0.05);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(123, 47, 190, 0.25),
+                            0 0 50px rgba(15, 188, 182, 0.1),
+                            0 0 80px rgba(232, 67, 147, 0.05);
+            }
+        }
+
+        .live-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: #3fb950;
+            text-shadow: 0 0 10px rgba(63, 185, 80, 0.5);
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #3fb950;
+            animation: liveDotPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes liveDotPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 4px rgba(63, 185, 80, 0.5); }
+            50% { opacity: 0.4; box-shadow: 0 0 8px rgba(63, 185, 80, 0.8); }
+        }
+
+        .live-status {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .live-content {
+            font-size: 12px;
+            color: rgba(220, 220, 255, 0.7);
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .live-content code {
+            background: rgba(123, 47, 190, 0.15);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #c4b5fd;
+        }
+
+        /* Voice Visualizer Bars */
+        .voice-visualizer {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 24px;
+            padding-top: 4px;
+        }
+
+        .voice-bar {
+            width: 4px;
+            border-radius: 2px;
+            transition: height 0.15s ease;
+            animation: voiceBarPulse 1.2s ease-in-out infinite;
+        }
+
+        .voice-bar:nth-child(1) {
+            background: linear-gradient(180deg, #7b2fbe, #4a1942);
+            height: 8px;
+            animation-delay: 0s;
+        }
+        .voice-bar:nth-child(2) {
+            background: linear-gradient(180deg, #0fbcb6, #0a4040);
+            height: 16px;
+            animation-delay: 0.15s;
+        }
+        .voice-bar:nth-child(3) {
+            background: linear-gradient(180deg, #e84393, #6c2c70);
+            height: 20px;
+            animation-delay: 0.3s;
+        }
+        .voice-bar:nth-child(4) {
+            background: linear-gradient(180deg, #00cec9, #0d2b45);
+            height: 12px;
+            animation-delay: 0.45s;
+        }
+        .voice-bar:nth-child(5) {
+            background: linear-gradient(180deg, #c44bdb, #2d1b69);
+            height: 6px;
+            animation-delay: 0.6s;
+        }
+
+        @keyframes voiceBarPulse {
+            0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+            50% { transform: scaleY(1); opacity: 1; }
+        }
+
+        /* ===== RESPONSE AREA ===== */
+        .response-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message-bubble {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            padding: 12px 14px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .message-bubble:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Colored left borders matching aurora palette */
+        .message-bubble.user {
+            border-left: 3px solid rgba(15, 188, 182, 0.6);
+        }
+
+        .message-bubble.assistant {
+            border-left: 3px solid rgba(123, 47, 190, 0.6);
+        }
+
+        .message-bubble.system {
+            border-left: 3px solid rgba(232, 67, 147, 0.5);
+        }
+
+        .message-bubble.tool {
+            border-left: 3px solid rgba(0, 206, 201, 0.5);
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .message-role {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .message-role.user-role { color: #0fbcb6; text-shadow: 0 0 10px rgba(15, 188, 182, 0.3); }
+        .message-role.assistant-role { color: #c4b5fd; text-shadow: 0 0 10px rgba(123, 47, 190, 0.3); }
+        .message-role.system-role { color: #f0abfc; text-shadow: 0 0 10px rgba(232, 67, 147, 0.3); }
+
+        .message-time {
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .message-body {
+            font-size: 13px;
+            line-height: 1.6;
+            color: rgba(240, 240, 255, 0.85);
+        }
+
+        .message-body code {
+            background: rgba(123, 47, 190, 0.12);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #c4b5fd;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        .message-body pre {
+            background: rgba(10, 10, 30, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            color: rgba(220, 220, 255, 0.8);
+        }
+
+        /* ===== HISTORY ITEMS ===== */
+        .history-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-item {
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        /* Colored left borders on history items */
+        .history-item:nth-child(5n+1) { border-left: 2px solid rgba(123, 47, 190, 0.5); }
+        .history-item:nth-child(5n+2) { border-left: 2px solid rgba(15, 188, 182, 0.5); }
+        .history-item:nth-child(5n+3) { border-left: 2px solid rgba(232, 67, 147, 0.4); }
+        .history-item:nth-child(5n+4) { border-left: 2px solid rgba(0, 206, 201, 0.5); }
+        .history-item:nth-child(5n+5) { border-left: 2px solid rgba(196, 75, 219, 0.5); }
+
+        .history-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.12);
+            transform: translateX(2px);
+        }
+
+        .history-item.active {
+            background: rgba(123, 47, 190, 0.12);
+            border-color: rgba(123, 47, 190, 0.3);
+        }
+
+        .history-time {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .history-preview {
+            font-size: 12px;
+            color: rgba(240, 240, 255, 0.7);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
+        }
+
+        .history-footer {
+            padding: 8px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 11px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        /* ===== INPUT AREA (BRETT PANEL) ===== */
+        .input-wrapper {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .line-numbers {
+            width: 36px;
+            padding: 10px 4px 10px 8px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: rgba(123, 47, 190, 0.4);
+            text-align: right;
+            user-select: none;
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+
+        .input-area {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 10px 12px;
+            resize: none;
+            outline: none;
+            min-height: 0;
+        }
+
+        .input-area::placeholder {
+            color: rgba(200, 200, 255, 0.25);
+        }
+
+        .input-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+
+        .input-btn-group {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .input-btn {
+            padding: 5px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .input-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Voice indicator dots */
+        .voice-dots {
+            display: flex;
+            gap: 3px;
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .voice-dots.active { opacity: 1; }
+
+        .voice-dots .dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #e84393;
+            animation: voiceDotPulse 1.4s ease-in-out infinite;
+        }
+
+        .voice-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+        .voice-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes voiceDotPulse {
+            0%, 100% { transform: scale(0.6); opacity: 0.3; }
+            50% { transform: scale(1.2); opacity: 1; }
+        }
+
+        /* ===== MESSAGE QUEUE PANEL ===== */
+        .queue-panel {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            width: 280px;
+            background: rgba(10, 10, 30, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            z-index: 50;
+            overflow: hidden;
+        }
+
+        .queue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .queue-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+        }
+
+        .queue-badge {
+            background: rgba(123, 47, 190, 0.3);
+            color: #c4b5fd;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .queue-list {
+            padding: 8px;
+            max-height: 140px;
+            overflow-y: auto;
+        }
+
+        .queue-item {
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            margin-bottom: 4px;
+            font-size: 11px;
+            color: rgba(220, 220, 255, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .queue-item .queue-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(15, 188, 182, 0.5);
+            flex-shrink: 0;
+        }
+
+        .queue-item:first-child .queue-dot {
+            background: #3fb950;
+            animation: liveDotPulse 1.5s ease-in-out infinite;
+        }
+
+        /* ===== MODALS ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background: rgba(15, 15, 35, 0.85);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 0;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .modal-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+            text-shadow: var(--text-glow);
+        }
+
+        .modal-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(248, 81, 73, 0.2);
+            border-color: rgba(248, 81, 73, 0.4);
+            color: #f85149;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 60vh;
+        }
+
+        /* ===== KEYBOARD SHORTCUT HINT ===== */
+        .shortcut-hint {
+            font-size: 10px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        kbd {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            color: rgba(220, 220, 255, 0.5);
+        }
+
+        /* ===== SCROLL TO BOTTOM ===== */
+        .scroll-btn {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 5px 14px;
+            border-radius: 16px;
+            background: rgba(10, 10, 30, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(123, 47, 190, 0.3);
+            color: #c4b5fd;
+            font-family: 'Inter', sans-serif;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+        }
+
+        .scroll-btn:hover {
+            background: rgba(123, 47, 190, 0.2);
+            border-color: rgba(123, 47, 190, 0.5);
+        }
+
+        /* ===== ACK BANNER ===== */
+        .ack-banner {
+            padding: 6px 20px;
+            background: rgba(123, 47, 190, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(123, 47, 190, 0.2);
+            font-size: 12px;
+            color: #c4b5fd;
+            text-align: center;
+            animation: ackSlideIn 0.3s ease;
+        }
+
+        @keyframes ackSlideIn {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* ===== CODE BLOCK STYLING ===== */
+        .code-block {
+            background: rgba(10, 10, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 8px 0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            color: rgba(220, 220, 255, 0.8);
+            overflow-x: auto;
+        }
+
+        .code-block .keyword { color: #c4b5fd; }
+        .code-block .string { color: #67e8f9; }
+        .code-block .comment { color: rgba(220, 220, 255, 0.3); }
+        .code-block .function { color: #f0abfc; }
+        .code-block .number { color: #0fbcb6; }
+
+        /* ===== COLLAPSE TOGGLE ===== */
+        .collapse-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .collapse-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== SVG PARTICLE SYSTEM ===== -->
+    <div class="particles">
+        <svg width="100%" height="100%" style="position:absolute;top:0;left:0;">
+            <!-- Particle group 1 - purple tones -->
+            <circle cx="10%" cy="100%" r="2" fill="rgba(123, 47, 190, 0.5)">
+                <animate attributeName="cy" from="105%" to="-5%" dur="18s" repeatCount="indefinite"/>
+                <animate attributeName="cx" values="10%;12%;8%;10%" dur="7s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.5;0.3;0" dur="18s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="25%" cy="100%" r="1.5" fill="rgba(196, 75, 219, 0.4)">
+                <animate attributeName="cy" from="110%" to="-5%" dur="22s" repeatCount="indefinite" begin="2s"/>
+                <animate attributeName="cx" values="25%;27%;23%;25%" dur="9s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.4;0.2;0" dur="22s" repeatCount="indefinite" begin="2s"/>
+            </circle>
+            <circle cx="40%" cy="100%" r="2.5" fill="rgba(15, 188, 182, 0.4)">
+                <animate attributeName="cy" from="108%" to="-5%" dur="20s" repeatCount="indefinite" begin="5s"/>
+                <animate attributeName="cx" values="40%;43%;38%;40%" dur="11s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.6;0.3;0" dur="20s" repeatCount="indefinite" begin="5s"/>
+            </circle>
+            <!-- Particle group 2 - teal/cyan -->
+            <circle cx="55%" cy="100%" r="1.8" fill="rgba(0, 206, 201, 0.4)">
+                <animate attributeName="cy" from="112%" to="-5%" dur="24s" repeatCount="indefinite" begin="1s"/>
+                <animate attributeName="cx" values="55%;58%;53%;55%" dur="8s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.5;0.25;0" dur="24s" repeatCount="indefinite" begin="1s"/>
+            </circle>
+            <circle cx="70%" cy="100%" r="2" fill="rgba(232, 67, 147, 0.35)">
+                <animate attributeName="cy" from="106%" to="-5%" dur="19s" repeatCount="indefinite" begin="4s"/>
+                <animate attributeName="cx" values="70%;72%;68%;70%" dur="10s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.4;0.2;0" dur="19s" repeatCount="indefinite" begin="4s"/>
+            </circle>
+            <circle cx="85%" cy="100%" r="1.5" fill="rgba(123, 47, 190, 0.45)">
+                <animate attributeName="cy" from="115%" to="-5%" dur="26s" repeatCount="indefinite" begin="7s"/>
+                <animate attributeName="cx" values="85%;87%;83%;85%" dur="12s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.45;0.2;0" dur="26s" repeatCount="indefinite" begin="7s"/>
+            </circle>
+            <!-- Particle group 3 - mixed / accent -->
+            <circle cx="15%" cy="100%" r="3" fill="rgba(15, 188, 182, 0.25)">
+                <animate attributeName="cy" from="120%" to="-10%" dur="30s" repeatCount="indefinite" begin="3s"/>
+                <animate attributeName="cx" values="15%;18%;12%;15%" dur="14s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.35;0.15;0" dur="30s" repeatCount="indefinite" begin="3s"/>
+            </circle>
+            <circle cx="48%" cy="100%" r="1" fill="rgba(240, 171, 252, 0.5)">
+                <animate attributeName="cy" from="105%" to="-5%" dur="16s" repeatCount="indefinite" begin="6s"/>
+                <animate attributeName="cx" values="48%;50%;46%;48%" dur="6s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.5;0.3;0" dur="16s" repeatCount="indefinite" begin="6s"/>
+            </circle>
+            <circle cx="62%" cy="100%" r="2.2" fill="rgba(123, 47, 190, 0.3)">
+                <animate attributeName="cy" from="110%" to="-5%" dur="23s" repeatCount="indefinite" begin="8s"/>
+                <animate attributeName="cx" values="62%;65%;60%;62%" dur="13s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.4;0.2;0" dur="23s" repeatCount="indefinite" begin="8s"/>
+            </circle>
+            <circle cx="92%" cy="100%" r="1.8" fill="rgba(0, 206, 201, 0.35)">
+                <animate attributeName="cy" from="108%" to="-5%" dur="21s" repeatCount="indefinite" begin="9s"/>
+                <animate attributeName="cx" values="92%;94%;90%;92%" dur="7s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.5;0.2;0" dur="21s" repeatCount="indefinite" begin="9s"/>
+            </circle>
+            <circle cx="5%" cy="100%" r="1.2" fill="rgba(232, 67, 147, 0.4)">
+                <animate attributeName="cy" from="105%" to="-5%" dur="17s" repeatCount="indefinite" begin="10s"/>
+                <animate attributeName="cx" values="5%;7%;3%;5%" dur="8s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.45;0.2;0" dur="17s" repeatCount="indefinite" begin="10s"/>
+            </circle>
+            <circle cx="33%" cy="100%" r="2.8" fill="rgba(123, 47, 190, 0.2)">
+                <animate attributeName="cy" from="118%" to="-8%" dur="28s" repeatCount="indefinite" begin="12s"/>
+                <animate attributeName="cx" values="33%;36%;30%;33%" dur="15s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.3;0.15;0" dur="28s" repeatCount="indefinite" begin="12s"/>
+            </circle>
+            <circle cx="78%" cy="100%" r="1.3" fill="rgba(196, 181, 253, 0.4)">
+                <animate attributeName="cy" from="107%" to="-5%" dur="15s" repeatCount="indefinite" begin="11s"/>
+                <animate attributeName="cx" values="78%;80%;76%;78%" dur="9s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0;0.5;0.25;0" dur="15s" repeatCount="indefinite" begin="11s"/>
+            </circle>
+        </svg>
+    </div>
+
+    <!-- ===== APP CONTAINER ===== -->
+    <div class="app">
+
+        <!-- ===== HEADER ===== -->
+        <header class="header">
+            <h1>RELAY</h1>
+
+            <div class="header-center">
+                <button class="workflow-btn">
+                    <span class="step-num">1</span> Review Task
+                </button>
+                <button class="workflow-btn">
+                    <span class="step-num">2</span> Explain
+                </button>
+                <button class="workflow-btn">
+                    <span class="step-num">3</span> Implement
+                </button>
+            </div>
+
+            <div class="header-controls">
+                <div class="health-indicator">
+                    <div class="health-dot"></div>
+                    <span class="health-text">Connected</span>
+                </div>
+
+                <select class="project-select">
+                    <option>relay-app</option>
+                    <option>aurora-ui</option>
+                    <option>backend-api</option>
+                </select>
+
+                <button class="icon-btn" title="File Browser">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                </button>
+                <button class="icon-btn" title="Git Operations">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 012 2v7"/><path d="M6 9v12"/></svg>
+                </button>
+                <button class="icon-btn" title="Display Settings">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </button>
+                <button class="icon-btn" title="Voice Settings">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===== ACK BANNER ===== -->
+        <div class="ack-banner">
+            Message received &mdash; processing with Claude...
+        </div>
+
+        <!-- ===== MAIN THREE-PANEL LAYOUT ===== -->
+        <main class="main">
+
+            <!-- ===== HISTORY SIDEBAR (LEFT) ===== -->
+            <div class="panel history-panel">
+                <div class="panel-header">
+                    <div class="panel-title">History</div>
+                    <div class="panel-controls">
+                        <button class="collapse-btn" title="Collapse">&lsaquo;</button>
+                    </div>
+                </div>
+                <div class="history-list">
+                    <div class="history-item active">
+                        <div class="history-time">Today, 2:34 PM</div>
+                        <div class="history-preview">Refactor authentication middleware to use JWT...</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Today, 1:12 PM</div>
+                        <div class="history-preview">Add WebSocket reconnection logic with backoff</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Today, 11:47 AM</div>
+                        <div class="history-preview">Fix race condition in queue processor</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Today, 10:05 AM</div>
+                        <div class="history-preview">Create glass morphism CSS component library</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Yesterday, 4:30 PM</div>
+                        <div class="history-preview">Debug memory leak in event listener cleanup</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Yesterday, 2:15 PM</div>
+                        <div class="history-preview">Implement SSE streaming for live updates</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Yesterday, 11:00 AM</div>
+                        <div class="history-preview">Add dark mode toggle with CSS custom props</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Feb 2, 9:22 AM</div>
+                        <div class="history-preview">Set up PostgreSQL connection pooling</div>
+                    </div>
+                    <div class="history-item">
+                        <div class="history-time">Feb 1, 3:45 PM</div>
+                        <div class="history-preview">Write unit tests for API rate limiter</div>
+                    </div>
+                </div>
+                <div class="history-footer">
+                    9 conversations
+                </div>
+            </div>
+
+            <!-- ===== AXION RESPONSE PANEL (CENTER) ===== -->
+            <div class="panel response-panel" style="position:relative;">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>AXION</span>
+                    </div>
+                    <div class="panel-controls">
+                        <button class="icon-btn" title="Auto-read">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Read aloud">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Screenshots">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Clear">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-content">
+                    <!-- LIVE Activity Box -->
+                    <div class="live-box">
+                        <div class="live-header">
+                            <div class="live-indicator">
+                                <div class="live-dot"></div>
+                                LIVE
+                            </div>
+                            <span class="live-status">Writing code...</span>
+                        </div>
+                        <div class="live-content">
+                            Refactoring <code>AuthMiddleware</code> to validate JWT tokens using <code>jsonwebtoken</code> library. Adding refresh token rotation with secure httpOnly cookies...
+                        </div>
+                        <div class="voice-visualizer">
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                            <div class="voice-bar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Response Messages -->
+                    <div class="response-area">
+                        <div class="message-bubble user">
+                            <div class="message-header">
+                                <span class="message-role user-role">Brett</span>
+                                <span class="message-time">2:34 PM</span>
+                            </div>
+                            <div class="message-body">
+                                Can you refactor the authentication middleware? Currently it's using session-based auth but we need to migrate to JWT. The middleware is in <code>src/middleware/auth.ts</code>. It should handle token verification, refresh token rotation, and attach the decoded user to the request object.
+                            </div>
+                        </div>
+
+                        <div class="message-bubble assistant">
+                            <div class="message-header">
+                                <span class="message-role assistant-role">Axion</span>
+                                <span class="message-time">2:34 PM</span>
+                            </div>
+                            <div class="message-body">
+                                I'll refactor the authentication middleware to use JWT. Here's my approach:
+
+                                <br><br><strong style="color:#c4b5fd;">1. Token Verification</strong> &mdash; Replace session lookup with JWT verification using RS256 algorithm for better security.
+
+                                <br><br><strong style="color:#0fbcb6;">2. Refresh Token Rotation</strong> &mdash; Implement one-time-use refresh tokens stored in Redis with automatic rotation on each refresh.
+
+                                <br><br>Here's the core middleware:
+
+                                <pre><span class="keyword">import</span> { verify } <span class="keyword">from</span> <span class="string">'jsonwebtoken'</span>;
+<span class="keyword">import</span> { NextFunction, Request, Response } <span class="keyword">from</span> <span class="string">'express'</span>;
+
+<span class="keyword">export const</span> <span class="function">authMiddleware</span> = <span class="keyword">async</span> (
+  req: Request, res: Response, next: NextFunction
+) => {
+  <span class="keyword">const</span> token = req.headers.authorization
+    ?.split(<span class="string">' '</span>)[<span class="number">1</span>];
+
+  <span class="keyword">if</span> (!token) {
+    <span class="keyword">return</span> res.status(<span class="number">401</span>).json({
+      error: <span class="string">'Authentication required'</span>
+    });
+  }
+
+  <span class="keyword">try</span> {
+    <span class="keyword">const</span> decoded = verify(token, publicKey, {
+      algorithms: [<span class="string">'RS256'</span>]
+    });
+    req.user = decoded;
+    next();
+  } <span class="keyword">catch</span> (err) {
+    <span class="comment">// Token expired - try refresh</span>
+    <span class="keyword">await</span> <span class="function">handleTokenRefresh</span>(req, res, next);
+  }
+};</pre>
+                            </div>
+                        </div>
+
+                        <div class="message-bubble tool">
+                            <div class="message-header">
+                                <span class="message-role" style="color:#00cec9;text-shadow:0 0 10px rgba(0,206,201,0.3);">Tool: Read File</span>
+                                <span class="message-time">2:35 PM</span>
+                            </div>
+                            <div class="message-body">
+                                Reading <code>src/middleware/auth.ts</code> &mdash; 142 lines, last modified 3 days ago
+                            </div>
+                        </div>
+
+                        <div class="message-bubble assistant">
+                            <div class="message-header">
+                                <span class="message-role assistant-role">Axion</span>
+                                <span class="message-time">2:36 PM</span>
+                            </div>
+                            <div class="message-body">
+                                I've updated the middleware. The refresh token rotation is now implemented with Redis-backed token families. Each refresh invalidates the previous token and issues a new pair. If a previously used refresh token is detected, the entire token family is revoked as a security measure against token theft.
+
+                                <br><br>Changes made:
+                                <br>&bull; <code>src/middleware/auth.ts</code> &mdash; Full JWT rewrite (142 &rarr; 198 lines)
+                                <br>&bull; <code>src/services/tokenService.ts</code> &mdash; New file for token management
+                                <br>&bull; <code>src/types/express.d.ts</code> &mdash; Updated Request type with user field
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="scroll-btn">&darr; Bottom</button>
+            </div>
+
+            <!-- ===== BRETT INPUT PANEL (RIGHT) ===== -->
+            <div class="panel input-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>BRETT</span>
+                        <div class="voice-dots">
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                            <div class="dot"></div>
+                        </div>
+                    </div>
+                    <div class="panel-controls">
+                        <button class="icon-btn" title="Copy text">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Clear text">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Voice input">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Read aloud">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Format text">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 5H18l-3.5 3 1.5 5-4-3.5L8 16l1.5-5L6 8h4.5z"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Design Mockup">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="panel-content" style="padding:0;">
+                    <div class="input-wrapper">
+                        <div class="line-numbers">
+                            1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18
+                        </div>
+                        <textarea class="input-area" placeholder="Type your message... (Ctrl+Enter to send)">Now add rate limiting to the auth middleware.
+
+Requirements:
+- Use a sliding window algorithm
+- Store counters in Redis (same instance as tokens)
+- Default: 100 requests per 15-minute window
+- Return 429 with Retry-After header when exceeded
+- Different limits for authenticated vs anonymous
+- Skip rate limiting for internal service calls
+
+Also add request logging that captures:
+- Timestamp, method, path, status code
+- Response time in milliseconds
+- User ID if authenticated
+- IP address (handle X-Forwarded-For)
+
+Make sure the middleware ordering is correct -
+rate limit should run before auth.</textarea>
+                    </div>
+                </div>
+
+                <div class="input-footer">
+                    <div class="shortcut-hint">
+                        <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to send
+                    </div>
+                    <div class="input-btn-group">
+                        <button class="input-btn">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Attach
+                        </button>
+                        <button class="send-btn" title="Send message">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== MESSAGE QUEUE PANEL ===== -->
+    <div class="queue-panel">
+        <div class="queue-header">
+            <span class="queue-title">Message Queue</span>
+            <span class="queue-badge">2</span>
+        </div>
+        <div class="queue-list">
+            <div class="queue-item">
+                <div class="queue-dot"></div>
+                Processing: JWT middleware refactor...
+            </div>
+            <div class="queue-item">
+                <div class="queue-dot"></div>
+                Pending: Add rate limiting middleware
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
