@@ -281,7 +281,7 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
         self.send_json(result)
 
-    def handle_queue_status(self):
+    def handle_queue_status(self, project: str = ""):
         """GET /api/queue/status - Get queue status."""
         pending = []
         processing = []
@@ -290,12 +290,19 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
                 continue
             try:
                 job = safe_json_load(job_file, {})
+                job_project = job.get("project", "") or "default"
+
+                # Filter by project if specified
+                if project and job_project != project:
+                    continue
+
                 job_info = {
                     "id": job.get("id", job_file.stem),
                     "status": job.get("status", "unknown"),
                     "message_preview": job.get("message", "")[:50],
                     "activity": job.get("activity", ""),
-                    "created": job.get("created", 0)
+                    "created": job.get("created", 0),
+                    "project": job_project
                 }
                 if job.get("status") == "pending":
                     pending.append(job_info)
@@ -308,6 +315,60 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
             "processing": processing,
             "total": len(pending) + len(processing)
         })
+
+    def handle_jobs_history(self, project: str = "", status: str = ""):
+        """GET /api/jobs/history - Get job history from queue files.
+
+        Returns list of jobs from .queue/*.json files, sorted by created
+        timestamp descending (newest first), limited to 50 jobs.
+        Supports filtering by project and status query parameters.
+        """
+        jobs = []
+        try:
+            for job_file in QUEUE_DIR.glob("*.json"):
+                # Skip non-job files
+                if job_file.name in ("watcher.heartbeat", "relay_sessions.json"):
+                    continue
+                try:
+                    job = safe_json_load(job_file, {})
+                    if not job:
+                        continue
+
+                    job_project = job.get("project", "") or "default"
+                    job_status = job.get("status", "unknown")
+
+                    # Filter by project if specified
+                    if project and job_project != project:
+                        continue
+
+                    # Filter by status if specified
+                    if status and job_status != status:
+                        continue
+
+                    # Extract relevant fields
+                    message = job.get("message", "")
+                    job_info = {
+                        "id": job.get("id", job_file.stem),
+                        "message": message[:100] + "..." if len(message) > 100 else message,
+                        "status": job_status,
+                        "created": job.get("created", 0),
+                        "created_at": job.get("created", 0),
+                        "project": job_project
+                    }
+                    jobs.append(job_info)
+                except Exception:
+                    # Skip files that can't be parsed
+                    pass
+
+            # Sort by created timestamp descending (newest first)
+            jobs.sort(key=lambda x: x.get("created", 0), reverse=True)
+
+            # Limit to last 50 jobs
+            jobs = jobs[:50]
+
+            self.send_json({"success": True, "jobs": jobs, "total": len(jobs)})
+        except Exception as e:
+            self.send_json({"error": str(e), "jobs": []}, 500)
 
     def handle_active_job(self, project: str):
         """GET /api/active/<project> - Get active job for a project.
@@ -622,10 +683,15 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
         elif questions_file.exists():
             q_data = safe_json_load(questions_file, {})
             if q_data.get("waiting"):
+                import hashlib
+                questions = q_data.get("questions", [])
+                # Generate hash of questions to prevent duplicate displays
+                question_hash = hashlib.md5(json.dumps(questions, sort_keys=True).encode()).hexdigest()
                 self.send_json({
                     "status": "waiting_for_answers",
-                    "questions": q_data.get("questions", []),
-                    "response_so_far": q_data.get("response_so_far", "")
+                    "questions": questions,
+                    "response_so_far": q_data.get("response_so_far", ""),
+                    "question_hash": question_hash
                 })
             else:
                 self.send_json({"status": "processing", "activity": "Processing answers..."})
@@ -708,7 +774,7 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
         """POST /api/format/start - Start a text formatting job.
 
         This sends text to Claude to clean up and structure, returning
-        the formatted result back to the input area.
+        the formatted result back to the input area (not as a TASK.md file).
         """
         text = data.get("text", "")
         project = data.get("project", "")
@@ -723,35 +789,12 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
         job_id = f"fmt-{str(uuid.uuid4())[:8]}"
 
-        # First, try to save the text as TASK.md in the project
-        task_saved = False
-        project_dir = self._find_project_dir(project)
-        if project_dir:
-            claude_dir = project_dir / ".claude"
-            try:
-                claude_dir.mkdir(exist_ok=True)
-                task_file = claude_dir / "TASK.md"
+        # Format the text directly - do NOT create TASK.md
+        # The result goes back into the input area for further editing
+        format_prompt = f"""Clean up and format the following text. This is likely from speech-to-text or rough notes. Fix grammar, spelling, punctuation, and structure it clearly. Keep the original meaning and intent. Return ONLY the cleaned-up text with no extra commentary, no markdown headings like "# TASK.md", and no preamble.
 
-                # Create initial TASK.md content
-                task_content = f"# TASK.md\n\n## Raw Input\n\n{text}"
-                with open(task_file, "w") as f:
-                    f.write(task_content)
-                task_saved = True
-            except (PermissionError, OSError) as e:
-                # Can't write TASK.md, will include text in prompt instead
-                pass
-
-        # Use /reviewtask to properly structure and format the input
-        if task_saved:
-            format_prompt = "/reviewtask"
-        else:
-            # Fallback: include text directly in the prompt
-            format_prompt = f"""Please review and structure this task input. Clean up the text, fix any speech-to-text errors, and format it as a proper task description.
-
-Raw input:
-{text}
-
-Please provide the cleaned up and structured version."""
+Text to format:
+{text}"""
 
         job_data = {
             "id": job_id,
@@ -780,25 +823,10 @@ Please provide the cleaned up and structured version."""
         result_file = QUEUE_DIR / f"{job_id}.result"
 
         if result_file.exists():
-            # Job complete - read the updated TASK.md from the project
+            # Job complete - read the result directly
             try:
-                # Get project from job file before cleaning up
-                job = safe_json_load(job_file, {})
-                project = job.get("project", "")
-
-                # Try to read the formatted TASK.md
-                result = ""
-                if project:
-                    project_dir = self._find_project_dir(project)
-                    if project_dir:
-                        task_file = project_dir / ".claude" / "TASK.md"
-                        if task_file.exists():
-                            result = task_file.read_text()
-
-                # If no TASK.md found, fall back to result file
-                if not result:
-                    with open(result_file) as f:
-                        result = f.read()
+                with open(result_file) as f:
+                    result = f.read()
 
                 # Clean up job files
                 if job_file.exists():
@@ -810,9 +838,6 @@ Please provide the cleaned up and structured version."""
                 if stream_file.exists():
                     stream_file.unlink()
 
-                # Strip TASK.md heading - it's file metadata, not user content
-                import re
-                result = re.sub(r'^#\s*TASK\.md\s*\n*', '', result.strip())
                 self.send_json({"status": "complete", "result": result.strip()})
             except Exception as e:
                 self.send_json({"status": "error", "error": str(e)})
@@ -1417,17 +1442,21 @@ IMPORTANT RULES:
                 text=True,
                 timeout=60
             )
+            status_output = result.stdout.strip()
             output_parts.append(f"\n$ git status --short\n{result.stdout}")
+
+            # Generate meaningful commit message from staged changes
+            commit_message = self._generate_commit_message(str(project_dir), status_output)
 
             # Git commit
             result = subprocess.run(
-                ["git", "commit", "-m", "Update from Relay"],
+                ["git", "commit", "-m", commit_message],
                 cwd=str(project_dir),
                 capture_output=True,
                 text=True,
                 timeout=120
             )
-            output_parts.append(f"\n$ git commit\n{result.stdout}{result.stderr}")
+            output_parts.append(f"\n$ git commit -m \"{commit_message}\"\n{result.stdout}{result.stderr}")
 
             if result.returncode != 0 and "nothing to commit" not in result.stdout + result.stderr:
                 self.send_json({
@@ -3005,6 +3034,65 @@ MERGED RESULT:"""
                 return p
 
         return None
+
+    def _generate_commit_message(self, project_dir: str, status_output: str) -> str:
+        """Generate a meaningful commit message based on staged changes."""
+        if not status_output:
+            return "Update project files"
+
+        lines = [l.strip() for l in status_output.strip().split("\n") if l.strip()]
+        added = []
+        modified = []
+        deleted = []
+        renamed = []
+
+        for line in lines:
+            if len(line) < 3:
+                continue
+            status = line[:2].strip()
+            filepath = line[2:].strip().strip('"')
+            # Get just the filename for readability
+            name = filepath.split("/")[-1] if "/" in filepath else filepath
+            if status in ("A", "??"):
+                added.append(name)
+            elif status == "M":
+                modified.append(name)
+            elif status == "D":
+                deleted.append(name)
+            elif status.startswith("R"):
+                renamed.append(name)
+
+        parts = []
+        if added:
+            if len(added) <= 3:
+                parts.append(f"add {', '.join(added)}")
+            else:
+                parts.append(f"add {len(added)} files")
+        if modified:
+            if len(modified) <= 3:
+                parts.append(f"update {', '.join(modified)}")
+            else:
+                parts.append(f"update {len(modified)} files")
+        if deleted:
+            if len(deleted) <= 3:
+                parts.append(f"remove {', '.join(deleted)}")
+            else:
+                parts.append(f"remove {len(deleted)} files")
+        if renamed:
+            parts.append(f"rename {len(renamed)} files")
+
+        if not parts:
+            return "Update project files"
+
+        # Capitalize first part, join with "; "
+        message = "; ".join(parts)
+        message = message[0].upper() + message[1:]
+
+        # Truncate if too long
+        if len(message) > 72:
+            message = message[:69] + "..."
+
+        return message
 
     def _start_watcher_directly(self):
         """Start watcher process directly."""

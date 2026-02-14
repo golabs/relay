@@ -16,7 +16,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <!-- Mermaid.js for diagram rendering -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script>mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose', themeVariables: { primaryColor: '#0fbcb6', primaryTextColor: '#e8ecf4', primaryBorderColor: '#00f0ff', lineColor: '#00f0ff', secondaryColor: '#1a0533', tertiaryColor: '#0a1628' }});</script>
+    <script>mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose', themeVariables: { primaryColor: '#0fbcb6', primaryTextColor: '#e8ecf4', primaryBorderColor: '#00f0ff', lineColor: '#00f0ff', secondaryColor: '#0a0018', tertiaryColor: '#000000' }});</script>
     <style>{{CSS_PLACEHOLDER}}</style>
 </head>
 <body>
@@ -50,8 +50,10 @@
                     <div class="separator"></div>
                     <!-- Model Selector -->
                     <select id="modelSelect" class="model-select" onchange="switchModel(this.value)" title="Select AI Model">
-                        <optgroup label="Claude (Default)">
-                            <option value="claude" selected>🟣 Claude (Local CLI)</option>
+                        <optgroup label="Claude">
+                            <option value="opus" selected>🟣 Claude Opus</option>
+                            <option value="sonnet">🔵 Claude Sonnet</option>
+                            <option value="haiku">⚡ Claude Haiku (Fast)</option>
                         </optgroup>
                         <optgroup label="NVIDIA NIM - Verified Working">
                             <option value="meta/llama-3.1-8b-instruct">⚡ Llama 3.1 8B (Fast)</option>
@@ -83,6 +85,7 @@
                     <button class="icon-btn danger delete-project-btn" onclick="openDeleteProjectModal()" title="Delete Project" style="font-size:12px;">🗑</button>
                     <div class="separator"></div>
                     <button class="icon-btn" onclick="openFileBrowser()" title="File Browser">📁</button>
+                    <button class="icon-btn" onclick="openJobHistoryModal()" title="Job History">📜</button>
                     <button class="icon-btn" onclick="openGitModal()" title="Git Operations">⎇</button>
                     <button class="icon-btn" onclick="openDisplaySettings()" title="Display Settings">◫</button>
                     <button class="icon-btn" onclick="openVoiceSettings()" title="Voice Settings">⚙</button>
@@ -109,6 +112,25 @@
                             </div>
                         </div>
                     </div>
+                    <select id="modelSelectMobile" class="model-select" onchange="switchModel(this.value)" title="Select AI Model">
+                        <optgroup label="Claude">
+                            <option value="opus" selected>🟣 Opus</option>
+                            <option value="sonnet">🔵 Sonnet</option>
+                            <option value="haiku">⚡ Haiku</option>
+                        </optgroup>
+                        <optgroup label="NVIDIA NIM">
+                            <option value="meta/llama-3.1-8b-instruct">⚡ Llama 8B</option>
+                            <option value="meta/llama-3.1-70b-instruct">🟢 Llama 70B</option>
+                            <option value="meta/llama-3.3-70b-instruct">🟢 Llama 3.3</option>
+                            <option value="mistralai/mistral-large-2-instruct">🟢 Mistral L2</option>
+                            <option value="deepseek-ai/deepseek-r1-distill-qwen-32b">🧠 DeepSeek 32B</option>
+                            <option value="qwen/qwen2.5-coder-32b-instruct">💻 Qwen Coder</option>
+                        </optgroup>
+                        <optgroup label="OpenAI">
+                            <option value="openai/gpt-4o">🔵 GPT-4o</option>
+                            <option value="openai/gpt-4o-mini">🔵 GPT-4o Mini</option>
+                        </optgroup>
+                    </select>
                     <select id="projectSelectMobile" class="project-select">
                         <option value="">No Project</option>
                     </select>
@@ -329,6 +351,8 @@
                     </div>
                     <div class="pane-controls">
                         <button class="icon-btn" id="copyInputBtn" onclick="copyInputText()" title="Copy text">📋</button>
+                        <button class="icon-btn" id="attachFileBtn" onclick="document.getElementById('desktopFileInput').click()" title="Attach file">📎</button>
+                        <input type="file" id="desktopFileInput" style="display:none;" multiple onchange="handleMobileFileAttach(this)">
                         <button class="icon-btn" onclick="clearInput()" title="Clear text">🗑</button>
                         <button class="icon-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
                         <button class="icon-btn" onclick="readInput()" title="Read aloud">🔊</button>
@@ -1598,6 +1622,33 @@
                             </div>
                             <div class="skill-card-check"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job History Modal -->
+        <div id="jobHistoryModal" class="modal-overlay" style="display:none;">
+            <div class="modal-content job-history-modal">
+                <div class="modal-header">
+                    <h3>Job History</h3>
+                    <button class="modal-close" onclick="closeJobHistoryModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="job-history-filters">
+                        <select id="jobHistoryProjectFilter" onchange="loadJobHistory()">
+                            <option value="">All Projects</option>
+                        </select>
+                        <select id="jobHistoryStatusFilter" onchange="loadJobHistory()">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </div>
+                    <div class="job-history-list" id="jobHistoryList">
+                        <div class="job-history-loading">Loading job history...</div>
                     </div>
                 </div>
             </div>

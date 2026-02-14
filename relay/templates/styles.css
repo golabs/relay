@@ -15,8 +15,8 @@
 /* ===== ROOT VARIABLES ===== */
 :root {
     /* Legacy aliases (JS references these in inline styles) */
-    --bg: #0a0a1a;
-    --bg-pane: rgba(10, 10, 30, 0.4);
+    --bg: #000000;
+    --bg-pane: rgba(0, 0, 0, 0.4);
     --bg-input: rgba(255, 255, 255, 0.05);
     --text: #ffffff;
     --text-secondary: rgba(220, 230, 245, 0.75);
@@ -29,20 +29,20 @@
     /* Aurora palette */
     --aurora-purple: #7b2fbe;
     --aurora-teal: #0fbcb6;
-    --aurora-blue: #0a1628;
+    --aurora-blue: #000000;
     --aurora-pink: #e84393;
-    --aurora-magenta: #4a0028;
-    --aurora-deep: #0a0a1a;
+    --aurora-magenta: #1a0010;
+    --aurora-deep: #000000;
     --aurora-cyan: #00cec9;
-    --aurora-deep-purple: #1a0533;
-    --aurora-electric-teal: #0a4d4d;
-    --aurora-midnight: #0a1628;
-    --aurora-warm-magenta: #4a0028;
-    --aurora-dark-cyan: #003344;
+    --aurora-deep-purple: #0a0018;
+    --aurora-electric-teal: #001a1a;
+    --aurora-midnight: #000000;
+    --aurora-warm-magenta: #1a0010;
+    --aurora-dark-cyan: #001a22;
 
     /* Glass morphism */
-    --glass-bg: rgba(10, 10, 30, 0.4);
-    --glass-bg-hover: rgba(15, 15, 45, 0.55);
+    --glass-bg: rgba(0, 0, 0, 0.4);
+    --glass-bg-hover: rgba(0, 0, 0, 0.55);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-hover: rgba(255, 255, 255, 0.18);
 
@@ -182,7 +182,7 @@ html, body {
 
 /* ===== BACKGROUND ===== */
 body {
-    background: #0a0a1a;
+    background: #000000;
     position: relative;
 }
 
@@ -328,7 +328,7 @@ body {
     align-items: center;
     padding: 0 16px;
     height: 48px;
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(24px) saturate(1.5);
     -webkit-backdrop-filter: blur(24px) saturate(1.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -565,7 +565,7 @@ body {
     box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
 }
 .project-select option {
-    background: #1a1a2e;
+    background: #000000;
     color: var(--text-primary);
 }
 
@@ -595,12 +595,12 @@ body {
     box-shadow: 0 0 0 3px rgba(138, 43, 226, 0.15);
 }
 .model-select option {
-    background: #1a1a2e;
+    background: #000000;
     color: var(--text-primary);
     padding: 8px;
 }
 .model-select optgroup {
-    background: #0d0d1a;
+    background: #000000;
     color: #888;
     font-weight: bold;
     font-style: normal;
@@ -1222,7 +1222,7 @@ select optgroup {
 /* ===== MARKDOWN STYLING ===== */
 .response-area h1, .response-area h2, .response-area h3 { margin: 16px 0 8px 0; color: var(--cyan); }
 .response-area code { background: rgba(0, 240, 255, 0.06); padding: 2px 6px; border-radius: 4px; font-family: monospace; }
-.response-area pre { background: rgba(10, 10, 30, 0.6); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; position: relative; border: 1px solid rgba(255, 255, 255, 0.06); }
+.response-area pre { background: rgba(0, 0, 0, 0.6); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; position: relative; border: 1px solid rgba(255, 255, 255, 0.06); }
 .response-area ul, .response-area ol { margin-left: 24px; }
 .response-area li { margin: 4px 0; }
 
@@ -1230,7 +1230,7 @@ select optgroup {
 .mermaid-container {
     margin: 12px 0;
     padding: 16px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(0, 240, 255, 0.1);
     border-radius: 8px;
     overflow-x: auto;
@@ -1358,7 +1358,7 @@ select optgroup {
 
 /* Code blocks (mockup style) */
 .code-block {
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 8px;
     padding: 12px;
@@ -1394,7 +1394,7 @@ select optgroup {
     position: absolute;
     top: 8px;
     right: 8px;
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-secondary);
     padding: 4px 8px;
@@ -1563,7 +1563,7 @@ select optgroup {
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    background: rgba(10, 10, 30, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 6px;
     font-size: 12px;
@@ -1590,7 +1590,7 @@ select optgroup {
     left: 50%;
     transform: translateX(-50%);
     padding: 12px 24px;
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
@@ -1739,7 +1739,7 @@ select optgroup {
     align-items: center;
     gap: 10px;
     padding: 6px 16px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -1768,7 +1768,7 @@ select optgroup {
 
 /* ===== QUEUE PANEL ===== */
 .queue-panel {
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1882,7 +1882,7 @@ select optgroup {
 }
 .modal-overlay.visible { display: flex; align-items: center; justify-content: center; }
 .modal-content {
-    background: rgba(10, 10, 30, 0.85);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1946,6 +1946,167 @@ select optgroup {
 .reset-status.visible { display: block; }
 .reset-status.success { background: rgba(0, 255, 136, 0.1); border: 1px solid rgba(0, 255, 136, 0.3); color: var(--green); }
 .reset-status.error { background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); color: var(--error); }
+
+/* ===== JOB HISTORY MODAL ===== */
+.job-history-modal {
+    max-width: 650px;
+}
+
+.job-history-filters {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.job-history-filters select {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.job-history-filters select:focus {
+    outline: none;
+    border-color: var(--cyan);
+}
+
+.job-history-list {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.job-history-loading,
+.job-history-empty,
+.job-history-error {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.job-history-error {
+    color: var(--error);
+}
+
+.job-history-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.job-history-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(0, 240, 255, 0.3);
+}
+
+.job-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.job-history-project {
+    font-weight: 600;
+    color: var(--cyan);
+    font-size: 13px;
+}
+
+.job-history-status {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.job-history-status.status-pending {
+    background: rgba(255, 200, 0, 0.15);
+    color: #ffc800;
+    border: 1px solid rgba(255, 200, 0, 0.3);
+}
+
+.job-history-status.status-processing {
+    background: rgba(0, 200, 255, 0.15);
+    color: #00c8ff;
+    border: 1px solid rgba(0, 200, 255, 0.3);
+}
+
+.job-history-status.status-completed {
+    background: rgba(0, 255, 136, 0.15);
+    color: var(--green);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+.job-history-status.status-failed {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--error);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+}
+
+.job-history-message {
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+    margin-bottom: 6px;
+}
+
+.job-history-time {
+    color: var(--text-secondary);
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+.job-history-label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 8px;
+    background: rgba(0, 240, 255, 0.1);
+    border-radius: 4px;
+}
+
+/* Light theme overrides for job history */
+[data-theme="light"] .job-history-item {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .job-history-item:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 152, 168, 0.3);
+}
+
+[data-theme="light"] .job-history-filters select {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: var(--text);
+}
+
+@media (max-width: 600px) {
+    .job-history-modal {
+        max-width: 95%;
+    }
+
+    .job-history-filters {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .job-history-list {
+        max-height: 300px;
+    }
+}
 
 /* ===== IMAGE LIGHTBOX ===== */
 .image-lightbox {
@@ -2060,7 +2221,7 @@ select optgroup {
 .question-input {
     width: 100%;
     padding: 10px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 6px;
     color: var(--text);
@@ -2084,7 +2245,7 @@ select optgroup {
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
-    background: rgba(10, 10, 30, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 6px;
     cursor: pointer;
@@ -2110,7 +2271,7 @@ select optgroup {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
@@ -2137,7 +2298,7 @@ select optgroup {
     justify-content: center;
     gap: 16px;
     padding: 4px 12px;
-    background: rgba(10, 10, 30, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(12px);
     border-top: 1px solid rgba(255, 255, 255, 0.04);
     font-size: 10px;
@@ -2195,7 +2356,7 @@ select optgroup {
         left: 0; top: 50px; bottom: 0;
         width: 280px;
         z-index: 100;
-        background: rgba(10, 10, 30, 0.9);
+        background: rgba(0, 0, 0, 0.9);
         backdrop-filter: blur(24px) saturate(1.5);
         border-radius: 0;
     }
@@ -2329,6 +2490,13 @@ select optgroup {
         font-size: 10px;
         padding: 4px 6px;
     }
+    .model-select {
+        min-width: 90px;
+        max-width: 110px;
+        font-size: 10px;
+        padding: 6px 6px;
+        min-height: 32px;
+    }
 
     /* Skills popup mobile */
     .skills-popup {
@@ -2429,7 +2597,7 @@ select optgroup {
     width: 90%;
     max-width: 500px;
     max-height: 85vh;
-    background: rgba(10, 10, 30, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(0, 240, 255, 0.3);
@@ -2747,7 +2915,7 @@ select optgroup {
     transform: translate(-50%, -50%);
     width: 90%;
     max-width: 450px;
-    background: rgba(10, 10, 30, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(0, 240, 255, 0.3);
     border-radius: 12px;
@@ -2888,7 +3056,7 @@ select optgroup {
     left: 20px;
     right: 20px;
     bottom: 20px;
-    background: rgba(10, 10, 30, 0.85);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -2923,7 +3091,7 @@ select optgroup {
     border-right: 1px solid rgba(255, 255, 255, 0.06);
     display: flex;
     flex-direction: column;
-    background: rgba(10, 10, 30, 0.3);
+    background: rgba(0, 0, 0, 0.3);
 }
 .file-tree-search {
     padding: 8px;
@@ -2984,7 +3152,7 @@ select optgroup {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: rgba(10, 10, 30, 0.3);
+    background: rgba(0, 0, 0, 0.3);
     min-width: 0;
 }
 .editor-header {
@@ -3097,7 +3265,7 @@ select optgroup {
 /* ===== EXPLAIN PANEL ===== */
 .explain-panel {
     width: 400px;
-    background: rgba(10, 10, 30, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border-left: 1px solid rgba(255, 255, 255, 0.06);
@@ -3110,7 +3278,7 @@ select optgroup {
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .explain-title {
@@ -3191,7 +3359,7 @@ select optgroup {
     font-size: 0.9em;
 }
 .explain-content pre {
-    background: rgba(10, 10, 30, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     padding: 12px;
     border-radius: 8px;
     overflow-x: auto;
@@ -3225,7 +3393,7 @@ select optgroup {
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .qa-title {
@@ -3259,7 +3427,7 @@ select optgroup {
     border: 1px solid rgba(0, 240, 255, 0.2);
 }
 .qa-message.assistant {
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     color: var(--text-primary);
     align-self: flex-start;
     border: 1px solid rgba(255, 255, 255, 0.06);
@@ -3307,7 +3475,7 @@ select optgroup {
     padding: 8px 12px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 6px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     color: var(--text-primary);
     font-size: 13px;
     font-family: inherit;
@@ -3326,7 +3494,7 @@ select optgroup {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     border-radius: 8px;
     align-self: flex-start;
     font-size: 13px;
@@ -3344,7 +3512,7 @@ select optgroup {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(10, 10, 30, 0.9);
+    background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(20px) saturate(1.4);
     z-index: 100;
     display: flex;
@@ -3397,7 +3565,7 @@ select optgroup {
 }
 .diff-pane-header {
     padding: 8px 12px;
-    background: rgba(10, 10, 30, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     font-weight: 600;
     font-size: 12px;
     color: var(--text-secondary);
@@ -3695,7 +3863,7 @@ select optgroup {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
     overflow: hidden;
-    background: rgba(10, 10, 30, 0.3);
+    background: rgba(0, 0, 0, 0.3);
 }
 .mockup-gallery-header {
     padding: 10px 16px;
@@ -3716,7 +3884,7 @@ select optgroup {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     overflow: hidden;
-    background: rgba(10, 10, 30, 0.4);
+    background: rgba(0, 0, 0, 0.4);
     transition: border-color 0.3s, box-shadow 0.3s;
 }
 .mockup-card:hover {
@@ -3795,7 +3963,7 @@ select optgroup {
     max-width: 1400px;
     display: flex;
     flex-direction: column;
-    background: rgba(10, 10, 30, 0.9);
+    background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(20px) saturate(1.4);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;

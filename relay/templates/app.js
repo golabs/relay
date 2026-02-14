@@ -38,6 +38,7 @@
     var selectedForDeletion = new Set();
     var pendingUserMessage = '';
     var pendingQuestions = null;
+    var lastShownQuestionHash = null;  // Track to prevent duplicate question displays
     var activeWorkflowCommand = null;
     var isFullscreen = false;
     var isBrettFullscreen = false;
@@ -1070,17 +1071,25 @@
     var currentModel = 'claude';  // Default to Claude CLI
 
     function getSelectedModel() {
-        var select = document.getElementById('modelSelect');
-        return select ? select.value : 'claude';
+        var desktop = document.getElementById('modelSelect');
+        var mobile = document.getElementById('modelSelectMobile');
+        return (desktop && desktop.value) || (mobile && mobile.value) || 'claude';
+    }
+
+    // Sync both desktop and mobile model selects
+    function syncModelSelects(modelId) {
+        var desktop = document.getElementById('modelSelect');
+        var mobile = document.getElementById('modelSelectMobile');
+        if (desktop) desktop.value = modelId;
+        if (mobile) mobile.value = modelId;
     }
 
     async function switchModel(modelId) {
         currentModel = modelId;
         localStorage.setItem('selectedModel', modelId);
 
-        // Update UI to show current model
-        var select = document.getElementById('modelSelect');
-        if (select) select.value = modelId;
+        // Update both desktop and mobile selects
+        syncModelSelects(modelId);
 
         // Announce model switch
         var modelName = modelId === 'claude' ? 'Claude' : modelId.split('/').pop();
@@ -1103,8 +1112,7 @@
         var saved = localStorage.getItem('selectedModel');
         if (saved) {
             currentModel = saved;
-            var select = document.getElementById('modelSelect');
-            if (select) select.value = saved;
+            syncModelSelects(saved);
         }
     }
 
@@ -3004,7 +3012,9 @@
                 if (data.status === 'waiting_for_answers') {
                     statusEl.textContent = 'Claude needs your input...';
                     var modal = document.getElementById('questionsModal');
-                    if (!modal.classList.contains('visible')) {
+                    var questionHash = data.question_hash || JSON.stringify(data.questions || []);
+                    if (!modal.classList.contains('visible') && questionHash !== lastShownQuestionHash) {
+                        lastShownQuestionHash = questionHash;
                         showAckBanner('Claude has questions for you!', true);
                         showQuestionsModal(data.questions || [], data.response_so_far || '');
                     }
@@ -3065,9 +3075,11 @@
 
                 if (data.status === 'waiting_for_answers') {
                     statusEl.textContent = 'Claude needs your input...';
-                    // Only show modal if not already visible (avoid resetting user's selections)
+                    // Only show modal if not already visible and questions are new
                     var modal = document.getElementById('questionsModal');
-                    if (!modal.classList.contains('visible')) {
+                    var questionHash = data.question_hash || JSON.stringify(data.questions || []);
+                    if (!modal.classList.contains('visible') && questionHash !== lastShownQuestionHash) {
+                        lastShownQuestionHash = questionHash;
                         showAckBanner('Claude has questions for you!', true);
                         showQuestionsModal(data.questions || [], data.response_so_far || '');
                     }
@@ -3248,20 +3260,19 @@
                         } else if (content[j].type === 'tool_use') {
                             var tool = content[j].name;
                             var input = content[j].input || {};
-                            // Natural language descriptions for each tool
+                            // Generate tool descriptions for activity/status only
+                            // These are NOT added to textParts (response text) -
+                            // they're used for status bar and voice announcements
                             var toolDesc = '';
                             if (tool === 'Read' && input.file_path) {
                                 var filename = input.file_path.split('/').pop();
                                 toolDesc = '📖 Reading file: ' + filename;
-                                textParts.push(toolDesc);
                             } else if (tool === 'Edit' && input.file_path) {
                                 var filename = input.file_path.split('/').pop();
                                 toolDesc = '✏️ Editing file: ' + filename;
-                                textParts.push(toolDesc);
                             } else if (tool === 'Write' && input.file_path) {
                                 var filename = input.file_path.split('/').pop();
                                 toolDesc = '📝 Creating file: ' + filename;
-                                textParts.push(toolDesc);
                             } else if (tool === 'Bash') {
                                 var cmd = input.command || '';
                                 var desc = input.description || '';
@@ -3274,14 +3285,11 @@
                                 } else {
                                     toolDesc = '💻 Executing: ' + cmd.substring(0, 50) + (cmd.length > 50 ? '...' : '');
                                 }
-                                textParts.push(toolDesc);
                             } else if (tool === 'Grep' && input.pattern) {
                                 var searchPath = input.path ? ' in ' + input.path.split('/').pop() : ' in codebase';
                                 toolDesc = '🔍 Searching for "' + input.pattern + '"' + searchPath;
-                                textParts.push(toolDesc);
                             } else if (tool === 'Glob' && input.pattern) {
                                 toolDesc = '📂 Finding files matching: ' + input.pattern;
-                                textParts.push(toolDesc);
                             } else if (tool === 'Task') {
                                 var desc = input.description || '';
                                 var prompt = input.prompt || '';
@@ -3304,7 +3312,6 @@
                                 } else {
                                     toolDesc = '🤖 Starting ' + agentTypeName + ' (' + toolId + ')';
                                 }
-                                textParts.push(toolDesc);
 
                                 // Speak agent launch for significant agents
                                 if (window.autoReadEnabled && !window.agentAnnouncedIds) {
@@ -3317,31 +3324,23 @@
                                 }
                             } else if (tool === 'TodoWrite') {
                                 toolDesc = '📋 Updating task checklist';
-                                textParts.push(toolDesc);
                             } else if (tool === 'WebFetch') {
                                 var url = input.url || '';
                                 var domain = url ? url.split('//')[1]?.split('/')[0] || 'web page' : 'web page';
                                 toolDesc = '🌐 Fetching content from ' + domain;
-                                textParts.push(toolDesc);
                             } else if (tool === 'WebSearch') {
                                 toolDesc = '🔎 Searching the web for: ' + (input.query || '');
-                                textParts.push(toolDesc);
                             } else if (tool === 'AskUserQuestion') {
                                 toolDesc = '❓ Waiting for your response';
-                                textParts.push(toolDesc);
                             } else {
                                 toolDesc = '🔧 Using ' + tool;
-                                textParts.push(toolDesc);
+                            }
+                            // Update live activity status with tool description (not added to response text)
+                            if (toolDesc && window.speakActivityUpdate && window.autoReadEnabled) {
+                                speakActivityUpdate(toolDesc);
                             }
                         } else if (content[j].type === 'tool_result') {
-                            // Show tool results for important tools
-                            var resultText = content[j].content;
-                            if (typeof resultText === 'string' && resultText.length > 0) {
-                                // Truncate long results but show key info
-                                var preview = resultText.substring(0, 200);
-                                if (resultText.length > 200) preview += '...';
-                                textParts.push('→ ' + preview);
-                            }
+                            // Tool results are internal - not shown in response text
                         }
                     }
                 } else if (obj.type === 'result' && obj.result) {
@@ -4505,10 +4504,78 @@
         return false; // Not a command
     }
 
+    // Track restart attempts for backoff on mobile
+    var voiceRestartAttempts = 0;
+    var voiceRestartTimer = null;
+    var voiceIsStarting = false; // Prevent concurrent start() calls
+    var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    function safeStartRecognition() {
+        if (!recognition || !isRecording) return;
+        if (voiceIsStarting) return; // Prevent overlapping start attempts
+        // Clear any pending restart
+        if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+        voiceIsStarting = true;
+        try {
+            recognition.start();
+            voiceRestartAttempts = 0; // Reset on success
+            voiceIsStarting = false;
+        } catch(e) {
+            voiceIsStarting = false;
+            console.warn('Voice start failed:', e.message);
+            voiceRestartAttempts++;
+            // Longer backoff on mobile: 500ms base vs 300ms desktop
+            var baseDelay = isMobile ? 500 : 300;
+            var delay = Math.min(baseDelay * Math.pow(2, voiceRestartAttempts - 1), 5000);
+            if (voiceRestartAttempts <= 5) {
+                console.log('Retry voice start in ' + delay + 'ms (attempt ' + voiceRestartAttempts + ')');
+                voiceRestartTimer = setTimeout(safeStartRecognition, delay);
+            } else {
+                console.error('Voice start failed after 5 retries, stopping');
+                isRecording = false;
+                localStorage.setItem('voiceEnabled', 'false');
+                voiceBtn.classList.remove('recording');
+                voiceBtn.textContent = '🎤';
+                voiceDots.classList.remove('active');
+                showToast('Microphone unavailable - check permissions', 'error');
+            }
+        }
+    }
+
+    // Helper to restore voice after speech output ends (used by all TTS engines)
+    function restoreVoiceAfterSpeak() {
+        var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
+        if (qaActive) return;
+        if (wasRecordingBeforeSpeak && recognition) {
+            wasRecordingBeforeSpeak = false;
+            isRecording = true;
+            voiceBtn.classList.add('recording');
+            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+            voiceDots.classList.add('active');
+            voiceRestartAttempts = 0;
+            voiceIsStarting = false;
+            var delay = isMobile ? 800 : 300;
+            setTimeout(safeStartRecognition, delay);
+        }
+        if (wasRecordingBeforeTask && recognition) {
+            wasRecordingBeforeTask = false;
+            isRecording = true;
+            voiceBtn.classList.add('recording');
+            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+            voiceDots.classList.add('active');
+            voiceRestartAttempts = 0;
+            voiceIsStarting = false;
+            var delay2 = isMobile ? 800 : 300;
+            setTimeout(safeStartRecognition, delay2);
+        }
+    }
+
     if (SR) {
         recognition = new SR();
         recognition.continuous = true;
         recognition.interimResults = false; // Disable interim to avoid mobile duplication
+        recognition.lang = 'en-US'; // Explicit language for consistent mobile behavior
+        recognition.maxAlternatives = 1; // Reduce processing load on mobile
         recognition.onresult = function(e) {
             // Get only the latest final result
             var result = e.results[e.results.length - 1];
@@ -4516,9 +4583,11 @@
 
             var transcript = result[0].transcript;
 
-            // Filter low-confidence results (below 0.5)
+            // Filter low-confidence results - lower threshold on mobile (0.3 vs 0.5)
+            // Mobile browsers often return lower confidence for clear speech
             var confidence = result[0].confidence;
-            if (confidence > 0 && confidence < 0.5) {
+            var minConfidence = isMobile ? 0.3 : 0.5;
+            if (confidence > 0 && confidence < minConfidence) {
                 console.log('Low confidence (' + confidence.toFixed(2) + '), skipping: ' + transcript);
                 return;
             }
@@ -4559,12 +4628,72 @@
             inputArea.focus();
             updateLineNumbers();
         };
+        recognition.onerror = function(e) {
+            console.warn('Voice recognition error:', e.error);
+            if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+                // Mic permission denied - stop recording entirely
+                isRecording = false;
+                localStorage.setItem('voiceEnabled', 'false');
+                voiceBtn.classList.remove('recording');
+                voiceBtn.textContent = '🎤';
+                voiceDots.classList.remove('active');
+                showToast('Microphone permission denied - tap mic to retry', 'error');
+            } else if (e.error === 'audio-capture') {
+                // Mic not available (common on mobile when switching apps)
+                // Stop cleanly first, then let onend handle restart with longer delay
+                console.log('Audio capture error - will retry after longer delay');
+                try { recognition.stop(); } catch(ex) {}
+                voiceRestartAttempts++; // Count these toward backoff
+            } else if (e.error === 'network') {
+                showToast('Network error - voice may be limited', 'error');
+                // Network errors may be transient, let onend retry
+            } else if (e.error === 'aborted') {
+                // Aborted can happen on mobile when OS kills the audio session
+                console.log('Voice recognition aborted (possibly by OS)');
+            }
+            // 'no-speech' is normal - no toast needed
+        };
         recognition.onend = function() {
+            voiceIsStarting = false; // Reset starting flag
             if (isRecording) {
-                recognition.start();
+                // Mobile needs longer delay for audio device to fully release
+                var restartDelay = isMobile ? 600 : 300;
+                // If we've had recent errors, use backoff delay instead
+                if (voiceRestartAttempts > 0) {
+                    var baseDelay = isMobile ? 800 : 500;
+                    restartDelay = Math.min(baseDelay * Math.pow(2, voiceRestartAttempts - 1), 5000);
+                }
+                voiceRestartTimer = setTimeout(safeStartRecognition, restartDelay);
             }
         };
     }
+
+    // Handle mobile tab switching / screen lock - restart mic when returning
+    document.addEventListener('visibilitychange', function() {
+        if (!SR || !recognition) return;
+        if (document.hidden) {
+            // Page going to background - stop cleanly to release audio on mobile
+            if (isRecording) {
+                console.log('Page hidden, stopping voice cleanly');
+                if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+                try { recognition.stop(); } catch(e) {}
+            }
+        } else {
+            // Page visible again - restart if was recording
+            if (isRecording) {
+                console.log('Page visible, restarting voice recognition');
+                // Clear any stale timers
+                if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+                // Stop first to reset state, then restart with longer mobile delay
+                try { recognition.stop(); } catch(e) {}
+                voiceRestartAttempts = 0;
+                voiceIsStarting = false;
+                // iOS/mobile needs 1-2s to re-acquire mic after app switch
+                var visDelay = isMobile ? 1500 : 500;
+                voiceRestartTimer = setTimeout(safeStartRecognition, visDelay);
+            }
+        }
+    });
 
     function toggleVoice() {
         if (!SR) { showToast('Voice not supported in this browser', 'error'); return; }
@@ -4578,17 +4707,21 @@
                 try { qaRecognition.stop(); } catch(e) {}
                 qaState.isVoiceActive = false;
             }
-            try {
-                recognition.start();
-            } catch(e) {
-                // Already started - stop and restart
-                try { recognition.stop(); } catch(e2) {}
-                setTimeout(function() { try { recognition.start(); } catch(e3) {} }, 200);
-            }
+            // Stop any existing instance first, then start cleanly
+            if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+            try { recognition.stop(); } catch(e) {}
+            voiceRestartAttempts = 0;
+            voiceIsStarting = false;
+            // Mobile needs longer delay after stop() for audio device release
+            var startDelay = isMobile ? 500 : 200;
+            setTimeout(safeStartRecognition, startDelay);
             voiceBtn.classList.add('recording');
             voiceBtn.textContent = voiceCommandsOnly ? 'Cmds' : 'Stop';
             voiceDots.classList.add('active');
         } else {
+            // Clear any pending restart timers
+            if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+            voiceIsStarting = false;
             try { recognition.stop(); } catch(e) {}
             voiceCommandsOnly = false; // Reset to full mode when turning off
             voiceBtn.classList.remove('recording');
@@ -4740,29 +4873,7 @@
                 : (voiceSettings.brettEdgeVoice || 'en-US-JennyNeural');
 
             speakWithEdgeTts(cleanedText, edgeVoice, function() {
-                // Same onend logic as browser speech
-                var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
-                if (qaActive) return;
-                if (wasRecordingBeforeSpeak && recognition) {
-                    wasRecordingBeforeSpeak = false;
-                    try {
-                        isRecording = true;
-                        recognition.start();
-                        voiceBtn.classList.add('recording');
-                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                        voiceDots.classList.add('active');
-                    } catch(e) { console.error('Voice restore error:', e); }
-                }
-                if (wasRecordingBeforeTask && recognition) {
-                    wasRecordingBeforeTask = false;
-                    try {
-                        isRecording = true;
-                        recognition.start();
-                        voiceBtn.classList.add('recording');
-                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                        voiceDots.classList.add('active');
-                    } catch(e) { console.error('Voice restore error:', e); }
-                }
+                restoreVoiceAfterSpeak();
             });
             return;
         }
@@ -4774,28 +4885,7 @@
                 : (voiceSettings.brettPiperVoice || voiceSettings.piperVoice || 'amy');
 
             speakWithPiper(cleanedText, piperVoice, function() {
-                var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
-                if (qaActive) return;
-                if (wasRecordingBeforeSpeak && recognition) {
-                    wasRecordingBeforeSpeak = false;
-                    try {
-                        isRecording = true;
-                        recognition.start();
-                        voiceBtn.classList.add('recording');
-                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                        voiceDots.classList.add('active');
-                    } catch(e) { console.error('Voice restore error:', e); }
-                }
-                if (wasRecordingBeforeTask && recognition) {
-                    wasRecordingBeforeTask = false;
-                    try {
-                        isRecording = true;
-                        recognition.start();
-                        voiceBtn.classList.add('recording');
-                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                        voiceDots.classList.add('active');
-                    } catch(e) { console.error('Voice restore error:', e); }
-                }
+                restoreVoiceAfterSpeak();
             });
             return;
         }
@@ -4813,28 +4903,7 @@
                 console.warn('No ElevenLabs voice configured, falling back to browser');
             } else {
                 speakWithElevenLabs(cleanedText, elevenVoice, stability, similarity, function() {
-                    var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
-                    if (qaActive) return;
-                    if (wasRecordingBeforeSpeak && recognition) {
-                        wasRecordingBeforeSpeak = false;
-                        try {
-                            isRecording = true;
-                            recognition.start();
-                            voiceBtn.classList.add('recording');
-                            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                            voiceDots.classList.add('active');
-                        } catch(e) { console.error('Voice restore error:', e); }
-                    }
-                    if (wasRecordingBeforeTask && recognition) {
-                        wasRecordingBeforeTask = false;
-                        try {
-                            isRecording = true;
-                            recognition.start();
-                            voiceBtn.classList.add('recording');
-                            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                            voiceDots.classList.add('active');
-                        } catch(e) { console.error('Voice restore error:', e); }
-                    }
+                    restoreVoiceAfterSpeak();
                 });
                 return;
             }
@@ -4856,61 +4925,12 @@
 
         u.onend = function() {
             isSpeakingText = false;
-            // Don't restore main recognition if Q&A voice is active - it would conflict
-            var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
-            if (qaActive) return;
-            // Restore voice recording if it was on before speaking
-            if (wasRecordingBeforeSpeak && recognition) {
-                wasRecordingBeforeSpeak = false;
-                try {
-                    isRecording = true;
-                    recognition.start();
-                    voiceBtn.classList.add('recording');
-                    voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                    voiceDots.classList.add('active');
-                    showToast('Voice resumed', 'success');
-                } catch(e) { console.error('Voice restore error:', e); }
-            }
-            // Also check for wasRecordingBeforeTask (for task completion)
-            if (wasRecordingBeforeTask && recognition) {
-                wasRecordingBeforeTask = false;
-                try {
-                    isRecording = true;
-                    recognition.start();
-                    voiceBtn.classList.add('recording');
-                    voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                    voiceDots.classList.add('active');
-                } catch(e) { console.error('Voice restore error:', e); }
-            }
+            restoreVoiceAfterSpeak();
         };
 
         u.onerror = function() {
             isSpeakingText = false;
-            // Don't restore main recognition if Q&A voice is active - it would conflict
-            var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
-            if (qaActive) return;
-            // Restore voice recording if it was on before speaking
-            if (wasRecordingBeforeSpeak && recognition) {
-                wasRecordingBeforeSpeak = false;
-                try {
-                    isRecording = true;
-                    recognition.start();
-                    voiceBtn.classList.add('recording');
-                    voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                    voiceDots.classList.add('active');
-                } catch(e) { console.error('Voice restore error:', e); }
-            }
-            // Also check for wasRecordingBeforeTask (for task completion)
-            if (wasRecordingBeforeTask && recognition) {
-                wasRecordingBeforeTask = false;
-                try {
-                    isRecording = true;
-                    recognition.start();
-                    voiceBtn.classList.add('recording');
-                    voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                    voiceDots.classList.add('active');
-                } catch(e) { console.error('Voice restore error:', e); }
-            }
+            restoreVoiceAfterSpeak();
         };
 
         window.speechSynthesis.speak(u);
@@ -4944,10 +4964,13 @@
         if (wasRecordingBeforeSpeak && recognition) {
             wasRecordingBeforeSpeak = false;
             isRecording = true;
-            recognition.start();
             voiceBtn.classList.add('recording');
             voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
             voiceDots.classList.add('active');
+            voiceRestartAttempts = 0;
+            voiceIsStarting = false;
+            var delay = isMobile ? 800 : 300;
+            setTimeout(safeStartRecognition, delay);
             showToast('Stopped reading, voice resumed', 'success');
         } else {
             showToast('Stopped reading', 'success');
@@ -8321,7 +8344,7 @@
             return;
         }
 
-        var project = document.getElementById('projectSelect').value;
+        var project = getSelectedProject();
         if (!project) {
             showToast('Please select a project first', 'error');
             return;
@@ -8929,6 +8952,7 @@
             var data = await res.json();
 
             if (data.status === 'answers_submitted') {
+                lastShownQuestionHash = null;  // Clear hash so new questions can be shown
                 showAckBanner('Answers submitted - Claude is continuing...', true);
             } else {
                 showToast('Failed to submit answers: ' + (data.error || 'Unknown error'), 'error');
@@ -8941,12 +8965,40 @@
     window.showQuestionsModal = showQuestionsModal;
     window.hideQuestionsModal = hideQuestionsModal;
 
-    function skipQuestions() {
+    async function skipQuestions() {
         if (questionsVoiceActive) {
             stopQuestionsVoice();
         }
+
+        if (!currentJobId) {
+            hideQuestionsModal();
+            return;
+        }
+
         hideQuestionsModal();
-        showToast('Questions skipped - Claude will continue without answers', 'success');
+        showAckBanner('Skipping questions - Claude will continue...', false);
+
+        try {
+            // Send empty answers to signal skip
+            var res = await fetch('/api/chat/answers', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    job_id: currentJobId,
+                    answers: {}  // Empty = skipped
+                })
+            });
+            var data = await res.json();
+
+            if (data.status === 'answers_submitted') {
+                lastShownQuestionHash = null;  // Clear hash so new questions can be shown
+                showAckBanner('Questions skipped - Claude is continuing...', true);
+            } else {
+                showToast('Failed to skip: ' + (data.error || 'Unknown error'), 'error');
+            }
+        } catch (err) {
+            showToast('Error skipping questions: ' + err.message, 'error');
+        }
     }
     window.skipQuestions = skipQuestions;
 
@@ -9213,6 +9265,178 @@
         });
     }
 
+    // ========== JOB HISTORY ==========
+    var jobHistoryData = [];
+
+    function openJobHistoryModal() {
+        document.getElementById('jobHistoryModal').style.display = 'block';
+        // Populate project filter and default to current project
+        var projectFilter = document.getElementById('jobHistoryProjectFilter');
+        if (projectFilter) {
+            var currentProject = document.getElementById('projectSelect') ? document.getElementById('projectSelect').value : '';
+            // Clear existing options safely
+            while (projectFilter.firstChild) { projectFilter.removeChild(projectFilter.firstChild); }
+            var allOpt = document.createElement('option');
+            allOpt.value = '';
+            allOpt.textContent = 'All Projects';
+            projectFilter.appendChild(allOpt);
+            var projectSelects = document.getElementById('projectSelect');
+            if (projectSelects) {
+                Array.from(projectSelects.options).forEach(function(opt) {
+                    if (opt.value) {
+                        var option = document.createElement('option');
+                        option.value = opt.value;
+                        option.textContent = opt.value;
+                        projectFilter.appendChild(option);
+                    }
+                });
+            }
+            // Default to current project so user sees their active project's jobs
+            projectFilter.value = currentProject || '';
+        }
+        loadJobHistory();
+    }
+    window.openJobHistoryModal = openJobHistoryModal;
+
+    function closeJobHistoryModal() {
+        document.getElementById('jobHistoryModal').style.display = 'none';
+    }
+    window.closeJobHistoryModal = closeJobHistoryModal;
+
+    async function loadJobHistory() {
+        var listEl = document.getElementById('jobHistoryList');
+        if (!listEl) return;
+
+        listEl.innerHTML = '<div class="job-history-loading">Loading job history...</div>';
+
+        var projectFilter = document.getElementById('jobHistoryProjectFilter');
+        var statusFilter = document.getElementById('jobHistoryStatusFilter');
+        var project = projectFilter ? projectFilter.value : '';
+        var status = statusFilter ? statusFilter.value : '';
+
+        try {
+            var url = '/api/jobs/history';
+            var params = [];
+            if (project) params.push('project=' + encodeURIComponent(project));
+            if (status) params.push('status=' + encodeURIComponent(status));
+            if (params.length > 0) url += '?' + params.join('&');
+
+            var res = await fetch(url);
+            var data = await res.json();
+
+            if (data.success && data.jobs) {
+                jobHistoryData = data.jobs;
+                renderJobHistory();
+            } else {
+                listEl.innerHTML = '<div class="job-history-empty">No jobs found</div>';
+            }
+        } catch (e) {
+            console.error('Failed to load job history:', e);
+            listEl.innerHTML = '<div class="job-history-error">Failed to load job history</div>';
+        }
+    }
+    window.loadJobHistory = loadJobHistory;
+
+    function renderJobHistory() {
+        var listEl = document.getElementById('jobHistoryList');
+        if (!listEl) return;
+
+        if (!jobHistoryData || jobHistoryData.length === 0) {
+            listEl.innerHTML = '<div class="job-history-empty">No jobs found</div>';
+            return;
+        }
+
+        var html = '';
+        jobHistoryData.forEach(function(job) {
+            var statusClass = 'status-' + (job.status || 'pending');
+            var statusLabel = job.status || 'pending';
+            var timestamp = job.created_at || job.created || job.timestamp || '';
+            if (timestamp) {
+                try {
+                    // Handle Unix timestamps (seconds) - convert to milliseconds for Date
+                    var ts = typeof timestamp === 'number' && timestamp < 9999999999 ? timestamp * 1000 : timestamp;
+                    var date = new Date(ts);
+                    timestamp = date.toLocaleString();
+                } catch (e) {
+                    // Keep original timestamp
+                }
+            }
+            var messagePreview = job.message || '';
+            if (messagePreview.length > 100) {
+                messagePreview = messagePreview.substring(0, 100) + '...';
+            }
+            // Escape HTML
+            messagePreview = messagePreview.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            html += '<div class="job-history-item" onclick="selectHistoryJob(\'' + job.id + '\')">';
+            html += '<div class="job-history-header">';
+            html += '<span class="job-history-project">' + (job.project || 'No Project') + '</span>';
+            html += '<span class="job-history-status ' + statusClass + '">' + statusLabel + '</span>';
+            html += '</div>';
+            html += '<div class="job-history-message">' + messagePreview + '</div>';
+            html += '<div class="job-history-time">' + timestamp + '</div>';
+            html += '</div>';
+        });
+
+        listEl.innerHTML = html;
+    }
+
+    async function selectHistoryJob(jobId) {
+        if (!jobId) return;
+
+        // Find the job in our cached data
+        var job = jobHistoryData.find(function(j) { return j.id === jobId; });
+        if (!job) {
+            showToast('Job not found', 'error');
+            return;
+        }
+
+        // Close the modal
+        closeJobHistoryModal();
+
+        // If the job has a result, display it in the response area
+        if (job.result || job.response) {
+            var content = job.result || job.response;
+
+            // Clear existing response area and show the job result
+            if (responseArea) {
+                responseArea.innerHTML = '';
+            }
+
+            // Show a message header with job info
+            var header = document.createElement('div');
+            header.className = 'message-header';
+            header.innerHTML = '<span class="job-history-label">Job from ' + (job.project || 'No Project') + '</span>';
+            responseArea.appendChild(header);
+
+            // Add the content
+            var contentDiv = document.createElement('div');
+            contentDiv.className = 'message-assistant';
+
+            // Parse markdown if we have the function
+            if (typeof parseMarkdown === 'function') {
+                contentDiv.innerHTML = parseMarkdown(content);
+            } else {
+                contentDiv.innerHTML = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            }
+            responseArea.appendChild(contentDiv);
+
+            // Highlight code blocks
+            responseArea.querySelectorAll('pre code').forEach(function(block) {
+                if (window.hljs) {
+                    hljs.highlightElement(block);
+                }
+            });
+
+            showToast('Loaded job result', 'success');
+        } else if (job.status === 'pending' || job.status === 'processing') {
+            showToast('This job is still ' + job.status, 'info');
+        } else {
+            showToast('No result available for this job', 'info');
+        }
+    }
+    window.selectHistoryJob = selectHistoryJob;
+
     // ========== FILE BROWSER & EDITOR ==========
     var editorState = {
         currentFile: null,  // Don't load from localStorage here - restore when file browser opens
@@ -9374,10 +9598,13 @@
 
         if (fileBrowserVoiceState.wasRecordingOn && recognition) {
             isRecording = true;
-            recognition.start();
             voiceBtn.classList.add('recording');
             voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
             voiceDots.classList.add('active');
+            voiceRestartAttempts = 0;
+            voiceIsStarting = false;
+            var fbDelay = isMobile ? 800 : 300;
+            setTimeout(safeStartRecognition, fbDelay);
         }
 
         // Reset saved state
@@ -11072,13 +11299,13 @@
             // Restore main voice if it was active before
             if (wasMainRecordingBeforeQa && recognition) {
                 wasMainRecordingBeforeQa = false;
-                setTimeout(function() {
-                    isRecording = true;
-                    recognition.start();
-                    voiceBtn.classList.add('recording');
-                    voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                    voiceDots.classList.add('active');
-                }, 100);
+                isRecording = true;
+                voiceBtn.classList.add('recording');
+                voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+                voiceDots.classList.add('active');
+                voiceRestartAttempts = 0;
+                voiceIsStarting = false;
+                setTimeout(safeStartRecognition, isMobile ? 600 : 200);
             }
             showToast('Voice input stopped', 'success');
         } else {
@@ -11174,13 +11401,13 @@
                     // Restore main voice if needed
                     if (wasMainRecordingBeforeQa && recognition) {
                         wasMainRecordingBeforeQa = false;
-                        setTimeout(function() {
-                            isRecording = true;
-                            recognition.start();
-                            voiceBtn.classList.add('recording');
-                            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                            voiceDots.classList.add('active');
-                        }, 100);
+                        isRecording = true;
+                        voiceBtn.classList.add('recording');
+                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+                        voiceDots.classList.add('active');
+                        voiceRestartAttempts = 0;
+                        voiceIsStarting = false;
+                        setTimeout(safeStartRecognition, isMobile ? 600 : 200);
                     }
                 };
 
@@ -11194,13 +11421,13 @@
                     // Restore main voice if needed
                     if (wasMainRecordingBeforeQa && recognition) {
                         wasMainRecordingBeforeQa = false;
-                        setTimeout(function() {
-                            isRecording = true;
-                            recognition.start();
-                            voiceBtn.classList.add('recording');
-                            voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
-                            voiceDots.classList.add('active');
-                        }, 100);
+                        isRecording = true;
+                        voiceBtn.classList.add('recording');
+                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+                        voiceDots.classList.add('active');
+                        voiceRestartAttempts = 0;
+                        voiceIsStarting = false;
+                        setTimeout(safeStartRecognition, isMobile ? 600 : 200);
                     }
                 };
 
@@ -11212,10 +11439,12 @@
                     if (wasMainRecordingBeforeQa && recognition) {
                         wasMainRecordingBeforeQa = false;
                         isRecording = true;
-                        recognition.start();
                         voiceBtn.classList.add('recording');
                         voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
                         voiceDots.classList.add('active');
+                        voiceRestartAttempts = 0;
+                        voiceIsStarting = false;
+                        setTimeout(safeStartRecognition, isMobile ? 600 : 200);
                     }
                 }
             }, 300);
@@ -11711,10 +11940,14 @@
     // Restore voice recording state from localStorage
     if (SR && localStorage.getItem('voiceEnabled') === 'true') {
         isRecording = true;
-        recognition.start();
         voiceBtn.classList.add('recording');
         voiceBtn.textContent = '⏹';
         voiceDots.classList.add('active');
+        // Delay start - mobile needs longer for page to be fully interactive
+        voiceRestartAttempts = 0;
+        voiceIsStarting = false;
+        var initDelay = isMobile ? 1000 : 500;
+        setTimeout(safeStartRecognition, initDelay);
     }
 
     // Clear any persisted screenCleared state - it should not survive page loads

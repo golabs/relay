@@ -5,7 +5,7 @@ import argparse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse, parse_qs
 
 from .config import (
     TEMPLATES_DIR, SCREENSHOTS_DIR, API_CACHE_HEADERS, DEFAULT_PORT, HTML_CACHE_ENABLED
@@ -109,9 +109,19 @@ class ChatRelayHandler(SimpleHTTPRequestHandler):
         elif self.path == "/api/health":
             api = APIHandler(self._json, self._send_error_json)
             api.handle_health()
-        elif self.path == "/api/queue/status":
+        elif self.path == "/api/queue/status" or self.path.startswith("/api/queue/status?"):
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_filter = params.get("project", [""])[0]
             api = APIHandler(self._json, self._send_error_json)
-            api.handle_queue_status()
+            api.handle_queue_status(project=project_filter)
+        elif self.path == "/api/jobs/history" or self.path.startswith("/api/jobs/history?"):
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            project_filter = params.get("project", [""])[0]
+            status_filter = params.get("status", [""])[0]
+            api = APIHandler(self._json, self._send_error_json)
+            api.handle_jobs_history(project=project_filter, status=status_filter)
         elif self.path.startswith("/api/history/"):
             project = self.path.split("/api/history/")[1]
             api = APIHandler(self._json, self._send_error_json)

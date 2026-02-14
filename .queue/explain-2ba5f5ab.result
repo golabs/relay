@@ -1,0 +1,593 @@
+# Simple Explanation: Walter Mobile App Security & Architecture Guide
+
+## 1. What This File Does
+
+This document is a comprehensive security blueprint that explains how the Walter voice assistant mobile app is built to be completely secure by never storing any passwords, secret keys, or sensitive credentials on users' phones. Instead, everything sensitive stays locked safely on company servers, and phones only receive temporary "visitor passes" (tokens) that expire after 24 hours or 7 days, making stolen phones virtually useless to hackers since they can't access any master keys or permanent credentials.
+
+---
+
+## 2. Key Components
+
+### **A. Security Principles Table (Section 1)**
+
+Six foundational security rules that protect the entire system:
+
+1. **No secrets on device**: Like keeping bank vault combinations at headquarters instead of writing them on ATM cards—all passwords, API keys, and database credentials stay on secure servers
+2. **Token-based auth**: Users receive temporary digital "day passes" (JWT tokens) instead of permanent keys
+3. **Microsoft SSO**: Login through Microsoft work accounts instead of creating new passwords
+4. **Encrypted transport**: All data travels in locked, armored trucks (HTTPS/WSS encryption) instead of transparent packages
+5. **Session isolation**: Each user session tracked separately in Redis database, like individual bank safety deposit boxes
+6. **Company isolation**: Server automatically ensures employees only see their own company's insurance data
+
+### **B. Microsoft SSO Login Flow Diagram (Section 2.1)**
+
+A 10-step ASCII art flowchart showing the login dance between three parties:
+
+**The Players:**
+1. **Mobile App** (built with Capacitor technology for iOS/Android)
+2. **Walter Backend** (company servers running Express/Node)
+3. **Microsoft Entra ID** (Microsoft's identity verification service)
+
+**The Login Journey:**
+1. User taps "Sign in with Microsoft"
+2. App asks Walter's server for login instructions
+3. App opens Microsoft's official login page in browser
+4. User enters Microsoft password (maybe security code too)
+5. Microsoft verifies identity and sends authorization code back
+6. App sends code to Walter's backend
+7. Walter backend exchanges code with Microsoft for identity tokens
+8. Walter checks database: Does user exist? If not, auto-create account
+9. Walter creates two special tokens for this specific phone
+10. App stores tokens in phone's most secure vault (iOS Keychain or Android Keystore)
+
+**Critical Security Point**: The mobile app **never sees or stores** the Microsoft password. It's like showing ID at a hotel front desk—the clerk verifies it but doesn't photocopy your driver's license.
+
+### **C. Token Lifecycle Table (Section 2.2)**
+
+Three types of digital "keys" explained:
+
+| Token Type | What It's Like | How Long It Lasts |
+|---|---|---|
+| **Access Token** | Hotel keycard for today | 24 hours |
+| **Refresh Token** | Week-long pass renewal voucher | 7 days |
+| **Microsoft ID Token** | Driver's license shown once at check-in, then given back | Used once, never stored |
+
+**Storage Location**: Access and refresh tokens stored in phone's hardware-encrypted vault:
+- **iOS**: Keychain (can require Face ID/Touch ID to access)
+- **Android**: Keystore (hardware-backed encryption chip)
+
+### **D. Token Refresh Flow Diagram (Section 2.3)**
+
+Shows how app automatically renews expired access tokens without bothering the user:
+
+1. App detects access token about to expire (approaching 24 hours)
+2. App sends refresh token to Walter backend
+3. Backend verifies: Is refresh token valid? Is session still active? Is user still authorized?
+4. Backend issues brand new access token AND refresh token (both rotate for security)
+5. App stores new tokens in secure vault
+6. User stays logged in seamlessly—never notices the renewal
+
+**Analogy**: Like getting a fresh hotel keycard from the front desk using your reservation confirmation number, without going through full check-in again.
+
+### **E. What Mobile App Receives (Section 2.4)**
+
+Example JSON showing **exactly** what the phone gets after login:
+
+```json
+{
+  "accessToken": "eyJ..." // 24-hour pass (encrypted JWT string)
+  "refreshToken": "eyJ..." // 7-day renewal voucher (encrypted JWT string)
+  "user": {
+    "id": "uuid", // Walter's internal user ID
+    "email": "brett@company.com",
+    "firstName": "Brett",
+    "role": "broker", // Permission level
+    "companyId": "uuid" // Which insurance company Brett works for
+  }
+}
+```
+
+**Big Security Statement**: "**No API keys, no Azure credentials, no database URLs** — ever."
+
+### **F. Voice Architecture Diagrams (Section 3)**
+
+Two different setups for voice conversations:
+
+**Development Mode (3.1) - Simple Three-Way Connection:**
+```
+Mobile App ⟷ Walter Backend ⟷ Azure OpenAI
+```
+- Direct WebSocket connection
+- Good for testing and small deployments
+- Like a three-way phone call
+
+**Production Mode (3.2) - Scalable Infrastructure:**
+```
+Mobile App ⟷ Azure Web PubSub ⟷ Walter Backend ⟷ Azure OpenAI
+```
+- Azure Web PubSub acts as a telephone switchboard
+- Handles thousands of simultaneous voice sessions
+- Auto-scales geographically for lower latency
+- Automatic reconnection if connection drops
+
+**Why the difference?** Development mode is like a small restaurant with one chef. Production mode is like a franchise with kitchens worldwide—handles rush hour, never runs out of capacity.
+
+**Connection Security (3.1):**
+- JWT token verified before opening voice connection
+- One active voice session per user maximum
+- Sessions expire after 30 minutes of inactivity
+- All Azure AI credentials stay server-side (never exposed to phone)
+
+**Audio Data Flow (3.3):**
+1. User speaks → Microphone captures sound
+2. Phone converts to digital audio (PCM16 format, 24kHz)
+3. Audio sent through WebSocket in real-time chunks
+4. Walter backend forwards to Azure OpenAI's voice AI
+5. AI responds with voice audio
+6. Audio travels back through the chain
+7. Phone plays AI voice through speaker
+8. User hears Walter's response
+
+**Audio Quality**: CD-quality mono sound (24,000 samples per second)
+
+### **G. Mobile App Configuration File (Section 4.1)**
+
+Example showing the **only** configuration file needed in the mobile app:
+
+```typescript
+export const config = {
+  API_BASE_URL: 'https://walter-api.yourcompany.com',
+  MSAL_CLIENT_ID: 'xxx-xxx-xxx', // Microsoft app ID (PUBLIC, not secret)
+  MSAL_AUTHORITY: 'https://login.microsoftonline.com/TENANT_ID',
+  MSAL_REDIRECT_URI: 'msauth.com.walter.voice://auth',
+  APP_VERSION: '1.0.0',
+  VOICE_SAMPLE_RATE: 24000,
+  SESSION_TIMEOUT_MS: 1800000 // 30 minutes
+};
+```
+
+**Important Note**: The document emphasizes `MSAL_CLIENT_ID` is **PUBLIC**, not a secret. It's like a store's address—publicly visible but harmless by itself. The real secrets (client secret) exist only on the backend server.
+
+### **H. Secrets That NEVER Touch the Phone (Section 4.2)**
+
+Comprehensive table listing 9 critical secrets that **only** exist on Walter's backend servers:
+
+| Secret | What It Controls | Why It's Critical |
+|---|---|---|
+| `AZURE_CLIENT_SECRET` | Microsoft OAuth server exchanges | Would allow impersonating the app |
+| `JWT_SECRET` | Token signing/verification | Would allow forging access tokens |
+| `AZURE_OPENAI_KEY` | AI conversation access | Would allow unauthorized AI usage |
+| `AZURE_REALTIME_KEY` | Voice AI access | Would allow voice API abuse |
+| `DATABASE_URL` | Database connection | Would expose all customer data |
+| `REDIS_URL` | Session storage | Would allow session hijacking |
+| `WEBPUBSUB_CONNECTION_STRING` | Voice infrastructure | Would allow eavesdropping on calls |
+| `SESSION_SECRET` | Cookie encryption | Would allow session tampering |
+| `CLAIMSAI_SERVICE_PASSWORD` | External service authentication | Would allow unauthorized access |
+
+**Analogy**: It's like how ATM cards work—your card has your account number (public identifier), but the bank vault combination stays locked at headquarters, never printed on your card.
+
+### **I. Secure Token Storage Code (Section 4.3)**
+
+TypeScript code showing how tokens are stored using Capacitor Secure Storage plugin:
+
+```typescript
+// Store tokens after login
+await SecureStoragePlugin.set({
+  key: 'walter_access_token',
+  value: accessToken
+});
+
+// Retrieve for API calls
+const { value: token } = await SecureStoragePlugin.get({
+  key: 'walter_access_token'
+});
+```
+
+**Platform Security Features:**
+- **iOS**: iOS Keychain with hardware encryption, can require Face ID/Touch ID
+- **Android**: Android Keystore with hardware-backed encryption chip
+- **On Logout**: Tokens deleted from phone AND server session destroyed (double guarantee)
+
+### **J. API Interaction Pattern (Section 5.1)**
+
+Code showing how every API request includes the access token:
+
+```typescript
+const response = await fetch(`${config.API_BASE_URL}/api/quotes`, {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  },
+});
+
+// If server returns 401 (unauthorized), token expired
+if (response.status === 401) {
+  const newTokens = await refreshTokens(); // Auto-refresh
+  // Retry request with new token
+}
+```
+
+**Smart Auto-Refresh Logic**: If a request fails because token expired, app automatically:
+1. Uses refresh token to get new access token
+2. Retries the original request with new token
+3. User never notices—stays seamlessly logged in
+
+**API Endpoints Table (5.2):**
+Lists 11 server endpoints the mobile app connects to:
+- `/api/auth/microsoft` - Start Microsoft login
+- `/api/auth/refresh` - Renew tokens
+- `/api/voice/negotiate` - Request voice session
+- `/api/quotes` - Get insurance quotes
+- `/api/chat` - Send chat messages
+- And more...
+
+### **K. Centralized API Client with Error Handling (Section 5.3)**
+
+Code showing a sophisticated `WalterAPIClient` class that:
+
+1. **Automatically adds access token** to every request
+2. **Detects 401 errors** (token expired)
+3. **Automatically refreshes token** and retries once
+4. **If still fails**, logs user out and shows login screen
+
+**Why This Matters**: Prevents the app from making hundreds of failed requests. One central system handles all authentication intelligently.
+
+### **L. Production Deployment Checklist (Section 6)**
+
+Three comprehensive checklists before launching:
+
+**Backend Configuration (6.1):**
+- Add mobile app redirect URI to environment variables
+- Configure CORS to allow mobile app connections
+- Set production-grade JWT secret (64+ random characters)
+
+**Azure AD Setup (6.2):**
+- Add "Mobile and desktop applications" platform
+- Set redirect URI: `msauth.com.walter.voice://auth`
+- Enable "Allow public client flows" (required for PKCE)
+- Grant API permissions: openid, profile, email, User.Read
+
+**Security Hardening Checklist (6.3) - 13 Critical Items:**
+- ✓ Force HTTPS on all endpoints
+- ✓ Force WSS (secure WebSockets) for voice
+- ✓ Use 64+ character cryptographically random JWT secret
+- ✓ Configure strict CORS (no wildcards in production)
+- ✓ Enable rate limiting on login endpoints (prevent brute-force)
+- ✓ Configure Redis with authentication and TLS encryption
+- ✓ Configure PostgreSQL database with SSL
+- ✓ Rotate Azure API keys on schedule
+- ✓ Enable App Transport Security on iOS
+- ✓ Enforce TLS on Android
+- ✓ Consider certificate pinning for high security
+- ✓ Optional: Add biometric authentication to unlock app
+- ✓ Invalidate sessions on suspicious activity
+
+**Each unchecked item is a potential vulnerability** that could be exploited.
+
+### **M. Technology Stack Table (Section 7)**
+
+Lists all technologies used to build the mobile app:
+
+| Technology | What It Does |
+|---|---|
+| **Capacitor + React/TypeScript** | Cross-platform framework (one codebase for iOS + Android) |
+| **@azure/msal-react-native** | Microsoft login integration with PKCE security |
+| **capacitor-secure-storage-plugin** | Secure token storage (Keychain/Keystore) |
+| **WebAudio API + AudioWorklet** | Real-time voice capture and playback |
+| **Native WebSocket API** | Voice streaming connection |
+| **Tailwind CSS** | User interface styling |
+
+**Note**: The document appears to be cut off mid-sentence in the UI Framework row.
+
+---
+
+## 3. How It Works
+
+### **The Complete Security Architecture:**
+
+Think of Walter's mobile app security like a **modern corporate office building with multiple security layers**:
+
+**Layer 1: Getting In the Building (Authentication)**
+
+1. **Show Corporate Badge** (Microsoft SSO):
+   - You don't get a separate Walter badge—you show your existing Microsoft work badge
+   - Security guard (Microsoft Entra ID) verifies you're really an employee
+   - Guard calls Walter's department: "Brett from Artemis Insurance is here"
+
+2. **Receive Temporary Keycards**:
+   - **Yellow card** (access token): Good for 24 hours, opens all doors
+   - **Blue voucher** (refresh token): Good for 7 days, can get you new yellow cards without going through security again
+
+3. **Store in Secure Wallet**:
+   - Keycards stored in phone's hardware-encrypted vault
+   - iOS: Requires Face ID/Touch ID to access
+   - Android: Protected by hardware encryption chip
+
+**Layer 2: Daily Access (Authorization)**
+
+1. **Every Door Requires Keycard**:
+   - Want to view insurance quotes? Show yellow card.
+   - Want to start voice conversation? Show yellow card.
+   - Server checks: "Is this card valid? Is it expired? Does Brett have permission for this?"
+
+2. **Automatic Card Renewal**:
+   - Before 24 hours expires, app uses blue voucher to get fresh yellow card
+   - Happens in background—user never notices
+   - Both cards rotate (old ones become invalid, preventing theft)
+
+3. **If Renewal Fails**:
+   - After 7 days, blue voucher expires
+   - User must show corporate badge again (re-login with Microsoft)
+
+**Layer 3: Voice Conversations (Real-Time Communication)**
+
+**Development Setup (Small Scale):**
+```
+Your Phone → Walter's Server → Azure AI Brain
+```
+- Direct three-way connection
+- Like a conference call
+
+**Production Setup (Large Scale):**
+```
+Your Phone → Azure Switchboard → Walter's Server → Azure AI Brain
+```
+- Switchboard handles thousands of calls simultaneously
+- Automatically connects you to nearest server (lower latency)
+- If connection drops, automatically reconnects
+
+**The Voice Conversation Flow:**
+
+1. **Request Voice Session**:
+   - App asks Walter: "Can I start a voice call?"
+   - Shows yellow keycard (access token) for proof
+   - Walter creates temporary voice connection ticket (valid 30 minutes)
+
+2. **Open Voice Channel**:
+   - App connects to WebSocket URL (like dialing a phone number)
+   - Connection is encrypted (WSS = secure WebSocket)
+
+3. **Talk in Real-Time**:
+   - You speak → Microphone captures → Converted to digital audio
+   - Audio sent in 200-millisecond chunks (super fast streaming)
+   - Walter's server forwards to Azure OpenAI voice AI
+   - AI responds with voice
+   - Audio travels back to your phone
+   - Speaker plays AI voice
+   - Transcript appears on screen in real-time
+
+4. **Session Expires**:
+   - After 30 minutes of silence, connection auto-closes
+   - Prevents abandoned sessions consuming resources
+
+**Layer 4: Data Protection (Company Isolation)**
+
+Even if hacker steals valid tokens:
+- They can only see data Brett is authorized to see
+- Can't access other insurance companies' data
+- Can't see other employees' information
+- Server middleware enforces these rules automatically
+
+**Layer 5: Zero Secrets on Phone (Ultimate Protection)**
+
+If phone is lost or stolen:
+- **What hacker gets**: Access token (expires in hours), refresh token (expires in days)
+- **What hacker CAN'T get**: Microsoft password, database credentials, API keys, encryption secrets
+- **Damage control**: Admin can invalidate session server-side instantly
+- **Maximum exposure**: Limited to what that user could access anyway
+
+**The PKCE Security Flow (Public Client):**
+
+Traditional OAuth assumed apps could keep secrets. Mobile apps can't (anyone can decompile them). PKCE solves this:
+
+1. App generates random code verifier (one-time password)
+2. App creates challenge (scrambled version of verifier)
+3. App sends challenge to Microsoft during login
+4. Microsoft returns authorization code
+5. App sends code + original verifier to Walter backend
+6. Backend verifies verifier matches challenge, then proceeds
+7. Even if attacker intercepts authorization code, they don't have verifier, so it's useless
+
+**Result**: Secure authentication without storing secrets on phone.
+
+---
+
+## 4. Important Things to Know
+
+### **The "Zero Secrets on Device" Philosophy**
+
+This is the **foundational principle** driving every design decision:
+
+**If secrets were stored on phone:**
+- Reverse-engineering the app would expose API keys
+- Jailbroken/rooted phones could extract credentials
+- Malware could steal secrets and impersonate the app
+- Lost phones = permanent security breach
+- Changing passwords would require updating every installed app
+
+**With Walter's architecture:**
+- Reverse-engineer the app → Only find public configuration (harmless)
+- Root the phone → Only get tokens that expire in 24 hours
+- Malware steals tokens → Limited damage, expires quickly, can be revoked
+- Lose phone → Report to admin, session invalidated server-side instantly
+- Rotate API keys → Change once on server, all apps benefit immediately
+
+### **Why Two Separate Tokens (Access + Refresh)?**
+
+**Access Token (24 hours):**
+- Sent with **every single API request** (high exposure risk)
+- If stolen, attacker has maximum 24 hours (probably less)
+- Short lifespan limits damage
+
+**Refresh Token (7 days):**
+- Only sent **once per day** for renewal (low exposure risk)
+- Theft less likely because rarely transmitted
+- If stolen, still limited to 7 days
+
+**Better than one long-lived token** because:
+- Single token would need to last 7 days
+- Sent with every request (hundreds of times)
+- Theft much more likely
+- Damage window much larger
+
+**Analogy**: Access token is cash in your pocket (spend daily, risk losing). Refresh token is bank card in your wallet (rarely used, better protected).
+
+### **Microsoft SSO Benefits**
+
+**For Users:**
+- Don't create another password to remember
+- If already logged into Microsoft today, one-click sign-in
+- Multi-factor authentication managed by Microsoft (SMS codes, authenticator apps)
+
+**For Companies:**
+- Central employee management (one place to add/remove people)
+- Disable ex-employee's Microsoft account → automatically locked out of Walter
+- Enforce company security policies (password complexity, MFA requirements)
+- Audit trails of all login activity through Microsoft
+- Leverage Microsoft's enterprise security infrastructure
+
+**For Developers:**
+- Don't build custom password storage (huge legal/security liability)
+- Don't implement password reset flows
+- Don't handle MFA logic
+- Auto-provision users (first login → account created automatically)
+
+### **Production vs. Development Voice Architecture**
+
+**Development Mode (Direct WebSocket):**
+- **Pros**: Simple setup, easy debugging, low cost
+- **Cons**: Single server bottleneck, limited concurrent users
+- **Use When**: Prototype, testing, fewer than 100 users
+
+**Production Mode (Azure Web PubSub):**
+- **Pros**: Auto-scales to thousands, global distribution, auto-reconnect
+- **Cons**: More complex, additional cost
+- **Use When**: Customer launch, growth expected, need reliability
+
+**Scaling Example**: Direct mode is like a food truck (serves 50 people/day). Web PubSub is like a restaurant chain (serves thousands simultaneously across multiple cities).
+
+### **Security Hardening Checklist Critical Items**
+
+The 13-item checklist isn't suggestions—it's **mandatory production requirements**:
+
+- **HTTPS enforced**: Without this, attackers intercept tokens mid-flight
+- **64-character JWT secret**: Weak secrets allow forging tokens
+- **Rate limiting**: Prevents brute-force password guessing
+- **Redis TLS**: Prevents session database interception
+- **Database SSL**: Protects customer data in transit
+- **Certificate pinning**: Advanced defense against man-in-the-middle attacks
+- **Biometric unlock**: Extra layer (Face ID/Touch ID to open app)
+
+**Each unchecked box = potential security breach.**
+
+### **What Happens on Logout**
+
+**Mobile App Side:**
+1. Delete access token from secure storage
+2. Delete refresh token from secure storage
+3. Clear user data from memory
+4. Show login screen
+
+**Server Side:**
+1. Destroy Redis session (invalidates all tokens)
+2. Even if attacker kept copy of tokens, server rejects them
+3. Audit log records logout with timestamp
+
+**Complete cleanup** ensures no residual access.
+
+### **Token Lifecycle Summary**
+
+```
+Login → Access (24h) + Refresh (7d) tokens issued + Redis session created
+
+Daily Use → Before each request, check if access token expires soon
+         → If < 5 min remaining, auto-refresh in background
+         → Use new token, user never notices
+
+Session Active → Every refresh extends Redis session (rolling 24h window)
+
+Token Expires → After 24h: Access token invalid, auto-refresh with refresh token
+             → After 7d: Refresh token invalid, force re-login
+
+Suspicious Activity → Admin can destroy session server-side instantly
+                   → All tokens immediately invalid
+                   → User must re-authenticate
+
+Logout → Tokens deleted from phone + session destroyed on server
+      → Complete disconnect
+```
+
+### **Cross-Platform Strategy (Capacitor)**
+
+**One Codebase, Two Platforms:**
+- **Shared**: 90%+ of code is TypeScript/React (runs on iOS + Android)
+- **Platform-Specific**: Secure storage calls iOS Keychain on iPhone, Android Keystore on Android
+- **Native Plugins**: Audio, Microsoft SSO, WebSocket use platform native APIs
+- **Result**: One team maintains both apps, faster features, consistent UX
+
+**Analogy**: Like a car engine that works in both sedans and SUVs—most parts identical, only exterior different.
+
+### **The JSON Response Decoded (Section 2.4)**
+
+```json
+{
+  "accessToken": "eyJ..." // JWT - encrypted, contains user ID + expiration
+  "refreshToken": "eyJ..." // JWT - encrypted, longer expiration
+  "user": {
+    "id": "uuid", // Walter's database ID for Brett
+    "email": "brett@company.com", // From Microsoft profile
+    "firstName": "Brett",
+    "lastName": "K",
+    "role": "broker", // Permission level (broker, admin, etc.)
+    "companyId": "uuid" // Which insurance company Brett works for
+  }
+}
+```
+
+**What's NOT included**: Microsoft password, API keys, database credentials, Azure secrets
+
+**Just**: Identity information + temporary access credentials
+
+### **Audio Quality Specification**
+
+**PCM16 format at 24kHz mono:**
+- **PCM16**: Uncompressed audio (like WAV files, very high quality)
+- **24,000 Hz**: 24,000 samples per second (better than phone call quality)
+- **Mono**: Single channel (stereo unnecessary for voice)
+- **Data rate**: ~48 KB/second
+- **5-minute call**: ~14 MB total data
+
+**Why this format?** Azure OpenAI Realtime API requires it for best voice recognition accuracy.
+
+---
+
+## In Summary
+
+This document is a **military-grade security blueprint** for building a mobile voice assistant where:
+
+- **Zero secrets stored on phones** (everything sensitive server-side)
+- **Microsoft enterprise SSO** (no custom password management)
+- **Dual-token system** (24-hour access + 7-day refresh)
+- **Hardware-encrypted storage** (iOS Keychain / Android Keystore)
+- **Scalable voice infrastructure** (direct for dev, Web PubSub for production)
+- **Defense-in-depth security** (multiple overlapping protection layers)
+- **Production-ready checklists** (nothing left to chance)
+
+**The Security Guarantee:**
+
+Even if an attacker:
+- Steals a phone
+- Reverse-engineers the app
+- Roots/jailbreaks the device
+- Intercepts network traffic
+- Compromises the operating system
+
+They **cannot**:
+- Access company secrets
+- Impersonate the server
+- See other users' data
+- Cause permanent damage
+
+**Because the phone only holds temporary, expiring visitor badges—never the master keys to the kingdom.**
+
+It's like modern hotel security: Your room keycard expires at checkout, but the building's master key system stays locked in the manager's vault, protected by multiple layers of physical and digital security, never accessible to guests.

@@ -1,0 +1,201 @@
+# Simple Explanation: Walter Mobile App Security & Architecture Guide
+
+## 1. What This File Does
+
+This is a beautifully formatted security and architecture guide that explains how the Walter mobile app keeps user data safe and connects securely to backend servers. It's designed as a professional reference document that developers can read on screen or print out, showing the complete security strategy for building a mobile app where **no passwords or secret keys are ever stored on the phone itself**—everything sensitive stays safely locked on the company's servers.
+
+---
+
+## 2. Key Components
+
+### **A. Document Structure and Styling**
+
+The HTML file is like a professionally designed Word document, but built for the web. It includes:
+
+- **Beautiful Typography**: Different heading sizes with purple color scheme (#4c1d95) that creates a professional, branded look
+- **Responsive Layout**: A centered white container (900px wide) on a light purple background that looks good on any screen size
+- **Print-Friendly Styles**: Special formatting that makes the document look professional when printed on paper—adjusting colors, fonts, and page breaks
+- **Interactive Tables**: Color-coded rows that highlight when you hover over them
+- **Code Blocks**: Dark-themed boxes for displaying technical code with syntax highlighting
+- **Special Boxes**: Color-coded sections for important warnings (yellow/orange) and summaries (purple gradient)
+
+### **B. Section 1: Security Principles Table**
+
+A comprehensive table listing the core security rules:
+
+1. **No secrets on device**: Like keeping your house keys at home instead of hiding them under the doormat—all passwords and secret codes stay on secure servers, never on phones
+2. **Token-based auth**: Instead of passwords, the app uses temporary digital "tickets" (JWT tokens) that expire
+3. **Microsoft SSO**: Users sign in with their Microsoft work account instead of creating new passwords
+4. **Encrypted transport**: All data travels through secure, encrypted connections (like sending mail in locked boxes instead of postcards)
+5. **Session isolation**: Each user's session is tracked separately in a secure database (Redis)
+6. **Company isolation**: Users can only see data belonging to their own insurance broker company
+
+### **C. Section 2: Authentication Flow Diagram**
+
+A detailed ASCII art diagram showing the step-by-step login process between three parties:
+
+1. **Mobile App** (Capacitor - a technology for building phone apps)
+2. **Walter Backend** (Express/Node - the server running Walter's brain)
+3. **Microsoft Entra ID** (Microsoft's identity verification service)
+
+The diagram shows 10 numbered steps illustrating how a user signs in:
+- App requests login from Walter's server
+- Walter redirects to Microsoft's login page
+- User enters Microsoft password
+- Microsoft sends back proof of identity
+- Walter creates special tokens for the mobile app
+- App stores these tokens securely
+
+---
+
+## 3. How It Works
+
+### **The Security Philosophy:**
+
+Think of this document as explaining a high-security office building's access system:
+
+**Traditional Approach (Insecure):**
+- Giving everyone their own key to copy (storing passwords on phones)
+- Risk: If someone loses their phone, hackers get the keys
+
+**Walter's Approach (Secure):**
+- The building's master keys stay locked in the security office (server-side secrets)
+- Employees show their company ID badge at the front desk (Microsoft SSO)
+- Security gives them a temporary access card good for today (JWT access token)
+- They also get a voucher to renew the card for up to 7 days (refresh token)
+- If the phone is lost, hackers only get an expired temporary card, not the master keys
+
+### **The Login Journey (from the diagram):**
+
+1. **User taps "Sign in with Microsoft"** in the Walter app
+2. **App asks Walter's server** where to send the user to log in
+3. **Server sends back Microsoft's login page URL**
+4. **App opens Microsoft's login page** in a secure browser window
+5. **User enters their Microsoft work password** (and possibly security code)
+6. **Microsoft verifies identity** and sends back a special authorization code
+7. **This code gets sent to Walter's backend server**
+8. **Walter exchanges the code with Microsoft** for official identity tokens
+9. **Microsoft confirms** "Yes, this is Jane Smith from Artemis One"
+10. **Walter checks its database**: Does Jane exist? If not, create her account automatically
+11. **Walter creates two special tokens** just for Jane's phone:
+    - Access token (24-hour pass)
+    - Refresh token (7-day renewal voucher)
+12. **App receives these tokens** and stores them in the phone's most secure vault
+13. **User is now logged in** and can talk to Walter
+
+### **Why This Diagram Matters:**
+
+The ASCII art flowchart shows that **the mobile app never sees or stores Microsoft passwords**. It's like a hotel where:
+- The front desk (Microsoft) verifies your ID
+- The hotel manager (Walter backend) issues your room keycard
+- Your phone is just a temporary keycard holder
+- The master key system stays locked in the security office
+
+---
+
+## 4. Important Things to Know
+
+### **Zero Secrets on Device:**
+
+The most critical security principle is that **no passwords, API keys, database credentials, or secret codes** are ever stored on the phone. If someone steals a phone or a hacker breaks into the app:
+- They can't access Walter's database
+- They can't impersonate the server
+- They can only use an access token that expires in 24 hours
+- Even the refresh token expires in 7 days
+
+**Analogy**: It's like losing a hotel keycard vs. losing the hotel's master key system. The keycard expires tomorrow; the master keys would compromise the entire building.
+
+### **Professional Document Design:**
+
+This isn't just a technical document—it's a **professionally styled web page** that could be:
+- Viewed in a browser for easy navigation
+- Printed as a PDF for offline reference
+- Shared with executives who need to understand security
+- Used in security audits or compliance reviews
+
+The purple color scheme (#4c1d95) creates a consistent Walter brand identity.
+
+### **Print Optimization:**
+
+The document includes special `@media print` styles that:
+- Adjust colors for black-and-white printers
+- Prevent tables and code blocks from splitting across pages
+- Make fonts readable on paper (11pt instead of 16px)
+- Remove unnecessary shadows and decorative elements
+- Ensure colored backgrounds print correctly
+
+**Why this matters**: Security documentation often needs to be reviewed by non-technical stakeholders (executives, auditors, compliance officers) who prefer printed copies.
+
+### **Token-Based Security Model:**
+
+Instead of traditional username/password, the app uses a **two-token system**:
+
+1. **Access Token** (24 hours):
+   - Like a day pass to an amusement park
+   - Proves who you are for API requests
+   - Expires quickly for security
+   
+2. **Refresh Token** (7 days):
+   - Like a season pass voucher
+   - Can get you new day passes without re-entering the park entrance
+   - Expires after a week of inactivity
+
+If hackers steal these tokens, they have limited time to use them before they become useless.
+
+### **Microsoft SSO Integration:**
+
+The app uses **Microsoft Single Sign-On (SSO)**, which means:
+- Users don't create yet another password to remember
+- Companies can enforce their own security policies (multi-factor authentication, password complexity)
+- If an employee leaves the company, disabling their Microsoft account automatically locks them out of Walter
+- It leverages Microsoft's billion-dollar security infrastructure instead of building custom authentication
+
+**Analogy**: Instead of each building having its own security checkpoint, everyone shows their government-issued ID that's already verified by a trusted authority.
+
+### **Session Isolation:**
+
+The document mentions **Redis-backed sessions** with per-user, per-device tracking. This means:
+- Each user's session is stored separately
+- If you log in on your iPhone and iPad, those are two separate sessions
+- The server tracks each session independently
+- If suspicious activity is detected on one device, it can be terminated without affecting other sessions
+
+### **Company Data Isolation:**
+
+**"Company isolation"** ensures users only see data from their own insurance broker company:
+- Jane Smith at Artemis One can't see quotes from Beta Insurance Co.
+- Server middleware (automatic security filters) enforces this rule
+- Even if a hacker got valid tokens, they'd only see data their account is authorized to access
+
+**Analogy**: Like how bank tellers can log into the bank system but can only access accounts they're authorized to service—they can't peek at the CEO's personal account.
+
+### **Encrypted Transport:**
+
+**HTTPS/WSS with TLS 1.2+** means:
+- All data traveling between phone and server is encrypted
+- Like sending letters in locked safes instead of postcards
+- Even if someone intercepts the network traffic, they can't read it
+- TLS 1.2+ is the modern encryption standard (outdated versions like SSL are not allowed)
+
+### **The Document is Incomplete:**
+
+Notice the code block and diagram are cut off mid-sentence (`"response": { "status`). This suggests the actual full document would include:
+- More detailed authentication flows
+- Token refresh procedures
+- Voice connection security
+- API endpoint documentation
+- Troubleshooting guides
+
+---
+
+## In Summary
+
+This is a **professional security architecture document** that explains how the Walter mobile app keeps data safe using:
+
+- **No secrets stored on phones** (everything sensitive stays server-side)
+- **Microsoft enterprise login** instead of custom passwords
+- **Temporary access tokens** that expire quickly
+- **Beautiful, printable formatting** for technical and non-technical audiences
+- **Clear visual diagrams** showing exactly how login works
+
+It's designed to give developers, security auditors, and business stakeholders confidence that the mobile app follows enterprise-grade security best practices—like a blueprint showing that a building meets fire safety codes, but for digital security instead of physical safety.

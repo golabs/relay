@@ -926,10 +926,10 @@ def process_job(job_file: Path) -> bool:
 
         # Build claude command (for Claude CLI models)
         model_map = {
-            "opus": "claude-opus-4-5-20251101",
-            "sonnet": "claude-sonnet-4-20250514",
-            "haiku": "claude-3-5-haiku-20241022",
-            "claude": "claude-opus-4-5-20251101",  # Default to Opus for 'claude' selection
+            "opus": "claude-opus-4-6",
+            "sonnet": "claude-sonnet-4-5-20250929",
+            "haiku": "claude-haiku-4-5-20251001",
+            "claude": "claude-opus-4-6",  # Default to Opus for 'claude' selection
         }
         model_id = model_map.get(model, "claude-sonnet-4-20250514")
 
@@ -943,15 +943,22 @@ def process_job(job_file: Path) -> bool:
             "--verbose",  # Required for stream-json
         ]
 
-        # Use a dedicated session for relay (separate from terminal sessions)
-        relay_session_id, is_new = get_or_create_relay_session_id(project)
-
-        if is_new:
-            # First time: create session with our ID
-            cmd.extend(["--session-id", relay_session_id])
+        # Format jobs use a fresh session every time (no conversation context needed)
+        # Also limit to 1 turn - format should just return text, no tool use
+        if job_type == "format":
+            format_session_id = f"fmt-{job_id}-{int(time.time())}"
+            cmd.extend(["--session-id", format_session_id])
+            cmd.extend(["--max-turns", "1"])
         else:
-            # Subsequent times: resume existing session
-            cmd.extend(["--resume", relay_session_id])
+            # Use a dedicated session for relay (separate from terminal sessions)
+            relay_session_id, is_new = get_or_create_relay_session_id(project)
+
+            if is_new:
+                # First time: create session with our ID
+                cmd.extend(["--session-id", relay_session_id])
+            else:
+                # Subsequent times: resume existing session
+                cmd.extend(["--resume", relay_session_id])
 
         # Add message (with any context answers from previous Q&A)
         full_message = message

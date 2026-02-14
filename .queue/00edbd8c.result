@@ -1,0 +1,31 @@
+I'll continue with the pending task: adding a paperclip file attachment icon to Relay. Let me first explore the current UI to find where the copy text icon is located.Found it. The copy button is at line 334 of index.html. Let me see the surrounding context to understand the input area layout.Now let me check how existing image/paste attachment works in the app.js to understand the pattern.Now let me see the existing file attachment code to understand the pattern.Let me look at the existing `addFile` function and the mobile file attachment code more closely.Now I have a clear picture. The mobile version already has `handleMobileFileAttach` which creates a file input and handles images, PDFs, and other files. I need to:
+
+1. Add a paperclip button next to the copy text button (📋) in the BRETT pane header
+2. Create a function that triggers a file input dialog
+3. Reuse the existing `handleMobileFileAttach` logic
+
+Let me also check if there's already a hidden file input in the HTML for mobile.Good - there's already a hidden file input at line 118 used by mobile. Let me also check if line 101 has context around the mobile menu items to understand the pattern.The mobile version already has the 📎 Attach File menu item that triggers the same hidden `mobileFileInput`. The infrastructure is already in place. I just need to:
+
+1. Add a 📎 paperclip button next to the 📋 copy button in the BRETT pane controls
+2. Make it trigger the same file input (or a new one for desktop)
+
+The simplest approach is to reuse the existing `mobileFileInput` or create a dedicated one. Since the existing input is inside the mobile controls div, I'll create a separate hidden file input for the desktop paperclip button to keep things clean.Now let me add the paperclip button. I'll place it right after the copy button at line 334, and add a hidden file input nearby.The implementation is actually complete since:
+- The `handleMobileFileAttach` function already handles all file types (images, PDFs, and text files)
+- The existing `renderAttachments`, `renderImages`, and `renderPdfs` functions handle the preview UI
+- The send flow already includes `attachedFiles`, `attachedImages`, and `attachedPdfs`
+
+The button reuses the same `handleMobileFileAttach` handler that the mobile version uses, so it will work identically. No new CSS is needed since it uses the existing `icon-btn` class just like all other buttons in that row.
+
+Let me verify the change looks correct.Done! I've added a 📎 paperclip button right next to the 📋 copy text button in the BRETT panel header. Here's what was added:
+
+- **📎 button** at line 335 - opens a file picker dialog when clicked
+- **Hidden file input** at line 336 - supports multiple file selection
+
+It reuses the existing `handleMobileFileAttach` function which already handles:
+- **Images** (png, jpg, etc.) - added to `attachedImages` with preview
+- **PDFs** - added to `attachedPdfs` with preview  
+- **Text/code files** - added to `attachedFiles` with preview
+
+This is the same functionality the phone version uses, just now accessible from the desktop BRETT panel via the paperclip icon. The button order is now: 📋 Copy → 📎 Attach → 🗑 Clear → 🎤 Voice → etc.
+
+You'll need to refresh the Relay page to see the new button.
