@@ -30,3 +30,11 @@ test-results/
 *.bak
 CLEANUP.md
 cleanup-jobs.py
+
+# Queue/runtime files
+.queue*/
+.history*/
+.temp*/
+.screenshots*/
+.last_voice_hash
+.backups/
