@@ -14,7 +14,9 @@ logs/
 test_*.js
 test-results/
 
-# Local config
+# Local config / secrets
+.env
+.env.*
 .context/
 .piper-voices/
 
