@@ -1,0 +1,1 @@
+Fix the login bug where the application crashes when a user types an incorrect password. Instead of crashing, the system should display an appropriate error message to the user.

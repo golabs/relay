@@ -78,6 +78,10 @@
                         </optgroup>
                     </select>
                     <div class="separator"></div>
+                    <select id="userSelect" class="user-select" onchange="switchUser(this.value)" title="Switch User">
+                        <option value="axion">Axion</option>
+                    </select>
+                    <div class="separator"></div>
                     <button class="icon-btn new-project-btn" onclick="openNewProjectModal()" title="New Project">+</button>
                     <select id="projectSelect" class="project-select">
                         <option value="">No Project</option>
@@ -92,12 +96,47 @@
                     <div class="separator"></div>
                     <button class="icon-btn danger" onclick="confirmLogout()" title="Clear Session (Logout)">⏻</button>
                 </div>
-                <!-- Mobile: hamburger menu -->
+                <!-- Mobile: hamburger menu with all controls inside -->
                 <div class="mobile-controls">
                     <div class="menu-container">
-                        <button class="icon-btn menu-btn" id="menuBtn" onclick="toggleActionsMenu()" title="Actions Menu">☰</button>
+                        <button class="icon-btn menu-btn" id="menuBtn" onclick="toggleActionsMenu()" title="Menu">☰</button>
                         <div class="actions-menu-overlay" id="actionsMenuOverlay" onclick="toggleActionsMenu()"></div>
                         <div class="actions-menu" id="actionsMenu" style="display:none;">
+                            <div class="actions-menu-section">
+                                <div class="actions-menu-label">Model</div>
+                                <select id="modelSelectMobile" class="mobile-menu-select" onchange="switchModel(this.value)" title="Select AI Model">
+                                    <optgroup label="Claude">
+                                        <option value="opus" selected>🟣 Opus</option>
+                                        <option value="sonnet">🔵 Sonnet</option>
+                                        <option value="haiku">⚡ Haiku</option>
+                                    </optgroup>
+                                    <optgroup label="NVIDIA NIM">
+                                        <option value="meta/llama-3.1-8b-instruct">⚡ Llama 8B</option>
+                                        <option value="meta/llama-3.1-70b-instruct">🟢 Llama 70B</option>
+                                        <option value="meta/llama-3.3-70b-instruct">🟢 Llama 3.3</option>
+                                        <option value="mistralai/mistral-large-2-instruct">🟢 Mistral L2</option>
+                                        <option value="deepseek-ai/deepseek-r1-distill-qwen-32b">🧠 DeepSeek 32B</option>
+                                        <option value="qwen/qwen2.5-coder-32b-instruct">💻 Qwen Coder</option>
+                                    </optgroup>
+                                    <optgroup label="OpenAI">
+                                        <option value="openai/gpt-4o">🔵 GPT-4o</option>
+                                        <option value="openai/gpt-4o-mini">🔵 GPT-4o Mini</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="actions-menu-section">
+                                <div class="actions-menu-label">User</div>
+                                <select id="userSelectMobile" class="mobile-menu-select" onchange="switchUser(this.value)" title="Switch User">
+                                    <option value="axion">Axion</option>
+                                </select>
+                            </div>
+                            <div class="actions-menu-section">
+                                <div class="actions-menu-label">Project</div>
+                                <select id="projectSelectMobile" class="mobile-menu-select">
+                                    <option value="">No Project</option>
+                                </select>
+                            </div>
+                            <div class="actions-menu-divider"></div>
                             <div class="actions-menu-item" onclick="document.getElementById('mobileFileInput').click(); toggleActionsMenu();">
                                 <span class="menu-icon">📎</span> Attach File
                             </div>
@@ -107,33 +146,18 @@
                             <div class="actions-menu-item" onclick="openGitModal(); toggleActionsMenu();">
                                 <span class="menu-icon">⎇</span> Git Operations
                             </div>
+                            <div class="actions-menu-item" onclick="openDisplaySettings(); toggleActionsMenu();">
+                                <span class="menu-icon">◫</span> Display Settings
+                            </div>
                             <div class="actions-menu-item" onclick="openVoiceSettings(); toggleActionsMenu();">
-                                <span class="menu-icon">⚙</span> Settings
+                                <span class="menu-icon">⚙</span> Voice Settings
+                            </div>
+                            <div class="actions-menu-divider"></div>
+                            <div class="actions-menu-item danger" onclick="confirmLogout(); toggleActionsMenu();">
+                                <span class="menu-icon">⏻</span> Logout
                             </div>
                         </div>
                     </div>
-                    <select id="modelSelectMobile" class="model-select" onchange="switchModel(this.value)" title="Select AI Model">
-                        <optgroup label="Claude">
-                            <option value="opus" selected>🟣 Opus</option>
-                            <option value="sonnet">🔵 Sonnet</option>
-                            <option value="haiku">⚡ Haiku</option>
-                        </optgroup>
-                        <optgroup label="NVIDIA NIM">
-                            <option value="meta/llama-3.1-8b-instruct">⚡ Llama 8B</option>
-                            <option value="meta/llama-3.1-70b-instruct">🟢 Llama 70B</option>
-                            <option value="meta/llama-3.3-70b-instruct">🟢 Llama 3.3</option>
-                            <option value="mistralai/mistral-large-2-instruct">🟢 Mistral L2</option>
-                            <option value="deepseek-ai/deepseek-r1-distill-qwen-32b">🧠 DeepSeek 32B</option>
-                            <option value="qwen/qwen2.5-coder-32b-instruct">💻 Qwen Coder</option>
-                        </optgroup>
-                        <optgroup label="OpenAI">
-                            <option value="openai/gpt-4o">🔵 GPT-4o</option>
-                            <option value="openai/gpt-4o-mini">🔵 GPT-4o Mini</option>
-                        </optgroup>
-                    </select>
-                    <select id="projectSelectMobile" class="project-select">
-                        <option value="">No Project</option>
-                    </select>
                     <input type="file" id="mobileFileInput" style="display:none;" multiple onchange="handleMobileFileAttach(this)">
                 </div>
             </div>
@@ -293,7 +317,7 @@
                     <div class="pane-controls">
                         <button class="icon-btn danger" id="pauseBtn" onclick="togglePause()" style="display:none;" title="Pause to add more info">⏸</button>
                         <button class="icon-btn" id="autoReadBtn" onclick="toggleAutoRead()" title="Auto-read responses">🔇</button>
-                        <button class="icon-btn" onclick="readResponse()" title="Read aloud">🔊</button>
+                        <button class="icon-btn" id="readResponseBtn" onclick="readResponse()" title="Read aloud">🔊</button>
                         <button class="icon-btn" onclick="showScreenshotGallery()" title="Screenshots">🖼</button>
                         <button class="icon-btn" onclick="clearResponse()" title="Clear">🗑</button>
                         <button class="icon-btn" id="quickMsgBtn" onclick="toggleQuickMessage()" title="Send message to Claude" style="display:none;">💬</button>
@@ -355,7 +379,7 @@
                         <input type="file" id="desktopFileInput" style="display:none;" multiple onchange="handleMobileFileAttach(this)">
                         <button class="icon-btn" onclick="clearInput()" title="Clear text">🗑</button>
                         <button class="icon-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
-                        <button class="icon-btn" onclick="readInput()" title="Read aloud">🔊</button>
+                        <button class="icon-btn" id="readInputBtn" onclick="readInput()" title="Read aloud">🔊</button>
                         <button class="icon-btn" onclick="startMockup()" title="Design Mockup">🎨</button>
                         <button class="icon-btn" onclick="openYouTubeModal()" title="Add YouTube Video">📺</button>
                         <button class="icon-btn" id="formatBtn" onclick="formatInput()" title="Format text with Claude">✨</button>
@@ -744,9 +768,9 @@
                                 </thead>
                                 <tbody id="voiceCommandsTable">
                                     <tr><td style="padding:4px 8px;">run send</td><td style="padding:4px 8px; color:var(--text-secondary);">Send message</td></tr>
-                                    <tr><td style="padding:4px 8px;">run clear</td><td style="padding:4px 8px; color:var(--text-secondary);">Clear Brett input</td></tr>
+                                    <tr><td style="padding:4px 8px;">run clear</td><td id="helpClearInput" style="padding:4px 8px; color:var(--text-secondary);">Clear Brett input</td></tr>
                                     <tr><td style="padding:4px 8px;">run format</td><td style="padding:4px 8px; color:var(--text-secondary);">Format text</td></tr>
-                                    <tr><td style="padding:4px 8px;">run read</td><td style="padding:4px 8px; color:var(--text-secondary);">Read Brett aloud</td></tr>
+                                    <tr><td style="padding:4px 8px;">run read</td><td id="helpReadInput" style="padding:4px 8px; color:var(--text-secondary);">Read Brett aloud</td></tr>
                                     <tr><td style="padding:4px 8px;">run stop</td><td style="padding:4px 8px; color:var(--text-secondary);">Stop current job</td></tr>
                                     <tr><td style="padding:4px 8px;">run refresh</td><td style="padding:4px 8px; color:var(--text-secondary);">Refresh page</td></tr>
                                     <tr><td style="padding:4px 8px;">run fullscreen</td><td style="padding:4px 8px; color:var(--text-secondary);">Enter fullscreen</td></tr>
@@ -756,7 +780,7 @@
                                     <tr><td style="padding:4px 8px;">run implement</td><td style="padding:4px 8px; color:var(--text-secondary);">Run /implement</td></tr>
                                     <tr><td style="padding:4px 8px;">run [project]</td><td style="padding:4px 8px; color:var(--text-secondary);">Open project in new tab</td></tr>
                                     <tr><td style="padding:4px 8px;">axion clear</td><td style="padding:4px 8px; color:var(--text-secondary);">Clear Axion display</td></tr>
-                                    <tr><td style="padding:4px 8px;">axion read</td><td style="padding:4px 8px; color:var(--text-secondary);">Read Axion aloud (pauses Brett voice)</td></tr>
+                                    <tr><td style="padding:4px 8px;">axion read</td><td id="helpAxionRead" style="padding:4px 8px; color:var(--text-secondary);">Read Axion aloud (pauses Brett voice)</td></tr>
                                     <tr><td style="padding:4px 8px;">axion read stop</td><td style="padding:4px 8px; color:var(--text-secondary);">Stop Axion reading</td></tr>
                                     <tr><td style="padding:4px 8px;">axion screenshots</td><td style="padding:4px 8px; color:var(--text-secondary);">Open screenshots</td></tr>
                                     <tr><td style="padding:4px 8px;">open [project]</td><td style="padding:4px 8px; color:var(--text-secondary);">Switch project</td></tr>

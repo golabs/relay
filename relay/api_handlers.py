@@ -17,7 +17,8 @@ from urllib.parse import unquote
 
 from .config import (
     QUEUE_DIR, HISTORY_DIR, SCREENSHOTS_DIR, PROJECTS_DIR, AXION_OUTBOX,
-    API_CACHE_HEADERS, RELAY_DIR
+    API_CACHE_HEADERS, RELAY_DIR,
+    USERS, ADMIN_USERS, DEFAULT_USER, SHARED_PROJECTS, USER_INPUT_PANEL_NAMES, get_user_projects_dir
 )
 from .utils import atomic_write_json, safe_json_load
 
@@ -239,14 +240,74 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
     # ========== GET ENDPOINTS ==========
 
-    def handle_projects(self):
-        """GET /api/projects - List available projects."""
+    def handle_users(self):
+        """GET /api/users - List available users."""
+        users = []
+        for username, display_name in USERS.items():
+            users.append({
+                "id": username,
+                "name": display_name,
+                "admin": username in ADMIN_USERS,
+                "inputPanelName": USER_INPUT_PANEL_NAMES.get(username, "BRETT")
+            })
+        self.send_json({"users": users, "default": DEFAULT_USER})
+
+    def handle_projects(self, user=None):
+        """GET /api/projects - List available projects, optionally filtered by user.
+        Query param: ?user=username (parsed by server.py and passed in)
+        """
         projects = []
-        if PROJECTS_DIR.exists():
-            for p in sorted(PROJECTS_DIR.iterdir()):
-                if p.is_dir() and not p.name.startswith('.'):
-                    projects.append(p.name)
-        self.send_json({"projects": projects})
+        is_admin = user in ADMIN_USERS if user else True
+
+        if is_admin or not user:
+            # Admin sees everything: root projects + all user subdirectories
+            if PROJECTS_DIR.exists():
+                for p in sorted(PROJECTS_DIR.iterdir()):
+                    if p.is_dir() and not p.name.startswith('.'):
+                        # Skip user directories themselves - we'll scan inside them
+                        if p.name in USERS:
+                            # Scan this user's projects
+                            for up in sorted(p.iterdir()):
+                                if up.is_dir() and not up.name.startswith('.'):
+                                    projects.append({
+                                        "name": up.name,
+                                        "path": f"{p.name}/{up.name}",
+                                        "owner": p.name,
+                                        "display": f"{up.name} ({USERS.get(p.name, p.name)})"
+                                    })
+                        else:
+                            # Root-level project (legacy/shared)
+                            projects.append({
+                                "name": p.name,
+                                "path": p.name,
+                                "owner": "shared",
+                                "display": p.name
+                            })
+        else:
+            # Regular user sees: their own projects + shared projects
+            user_dir = get_user_projects_dir(user)
+            if user_dir.exists():
+                for p in sorted(user_dir.iterdir()):
+                    if p.is_dir() and not p.name.startswith('.'):
+                        projects.append({
+                            "name": p.name,
+                            "path": f"{user}/{p.name}",
+                            "owner": user,
+                            "display": p.name
+                        })
+
+            # Add shared projects
+            for shared in SHARED_PROJECTS:
+                shared_path = PROJECTS_DIR / shared
+                if shared_path.exists() and shared_path.is_dir():
+                    projects.append({
+                        "name": shared,
+                        "path": shared,
+                        "owner": "shared",
+                        "display": f"{shared} (shared)"
+                    })
+
+        self.send_json({"projects": projects, "user": user or DEFAULT_USER})
 
     def handle_health(self):
         """GET /api/health - Health check endpoint."""
@@ -789,11 +850,53 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
         job_id = f"fmt-{str(uuid.uuid4())[:8]}"
 
-        # Format the text directly - do NOT create TASK.md
-        # The result goes back into the input area for further editing
-        format_prompt = f"""Clean up and format the following text. This is likely from speech-to-text or rough notes. Fix grammar, spelling, punctuation, and structure it clearly. Keep the original meaning and intent. Return ONLY the cleaned-up text with no extra commentary, no markdown headings like "# TASK.md", and no preamble.
+        # Format text into structured task format (EXACT reviewtask template from .claude/commands/reviewtask.md)
+        # The result goes back into the BRETT/Hudson input area for user editing before sending
+        format_prompt = f"""Transform the following raw task description (likely from speech-to-text or rough notes) into a professional, structured TASK.md specification.
 
-Text to format:
+Follow the EXACT structure from /reviewtask command (`.claude/commands/reviewtask.md`):
+
+# TASK.md - [Generate a Descriptive Title]
+
+## Overview
+
+[One paragraph summary of the task - convert conversational language to professional technical writing]
+
+## User Story
+
+As a [user type]
+I want to [action/goal]
+So that [benefit/value]
+
+## Requirements
+
+- [ ] [Specific, actionable requirement 1]
+- [ ] [Specific, actionable requirement 2]
+- [ ] [Additional requirements as needed...]
+
+## Acceptance Criteria
+
+- [ ] [Testable criterion 1]
+- [ ] [Testable criterion 2]
+- [ ] [Additional testable criteria...]
+
+## Technical Notes
+
+[Any implementation hints, constraints, or technical considerations mentioned - OPTIONAL, only include if relevant]
+
+**Processing Instructions:**
+1. Fix grammar, spelling, and punctuation
+2. Convert conversational/voice language to clear technical writing
+3. Expand abbreviations and clarify vague terms
+4. Extract specific requirements and acceptance criteria from the description
+5. Keep the original meaning and intent
+6. Use checkboxes (- [ ]) for ALL requirements and criteria
+7. Generate a clear, descriptive title
+8. Return ONLY the formatted markdown above (starting with # TASK.md)
+9. Do NOT add preamble, explanations, or commentary
+10. Follow the exact section structure shown above
+
+**Raw task description to format:**
 {text}"""
 
         job_data = {
@@ -2854,6 +2957,19 @@ MERGED RESULT:"""
         history_file = HISTORY_DIR / f"{project}.json"
         history_data = safe_json_load(history_file, {"entries": []})
 
+        # Dedup: check if the last entry has the same user message (watcher may have already saved it)
+        entries = history_data.get("entries", [])
+        if entries:
+            last = entries[-1]
+            if last.get("user", "").strip() == user_msg.strip():
+                # Already saved by watcher - update assistant response if frontend has a better version
+                if assistant_msg and len(assistant_msg) >= len(last.get("assistant", "")):
+                    last["assistant"] = assistant_msg
+                    last["timestamp"] = timestamp
+                    atomic_write_json(history_file, history_data)
+                self.send_json({"status": "saved", "dedup": True})
+                return
+
         history_data["entries"].append({
             "user": user_msg,
             "assistant": assistant_msg,
@@ -4733,13 +4849,14 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
     def handle_project_create(self, data: dict):
         """POST /api/project/create - Create a new project.
 
-        Request: {"name": "my-project", "init_git": true, "copy_template": true}
-        Response: {"success": true, "project": "my-project", "path": "/opt/clawd/projects/my-project"}
+        Request: {"name": "my-project", "user": "axion", "init_git": true, "copy_template": true}
+        Response: {"success": true, "project": "my-project", "path": "/opt/clawd/projects/axion/my-project"}
         """
         import shutil
         import re
 
         name = data.get("name", "").strip()
+        user = data.get("user", DEFAULT_USER).strip()
         init_git = data.get("init_git", True)
         copy_template = data.get("copy_template", True)
 
@@ -4756,7 +4873,13 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
             }, 400)
             return
 
-        project_path = PROJECTS_DIR / name
+        # Create in user's directory if user is specified and valid
+        if user and user in USERS:
+            user_dir = get_user_projects_dir(user)
+            user_dir.mkdir(parents=True, exist_ok=True)
+            project_path = user_dir / name
+        else:
+            project_path = PROJECTS_DIR / name
         template_path = PROJECTS_DIR / ".templates" / "claude-template"
 
         # Check if project already exists

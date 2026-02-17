@@ -569,6 +569,35 @@ body {
     color: var(--text-primary);
 }
 
+/* User Selector */
+.user-select {
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    background: rgba(88, 166, 255, 0.1);
+    color: #58a6ff;
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 80px;
+    font-weight: 600;
+}
+.user-select:hover {
+    border-color: rgba(88, 166, 255, 0.5);
+    background: rgba(88, 166, 255, 0.15);
+}
+.user-select:focus {
+    outline: none;
+    border-color: rgba(88, 166, 255, 0.6);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+.user-select option {
+    background: #000000;
+    color: var(--text-primary);
+}
+
 /* Model Selector */
 .model-select {
     padding: 4px 10px;
@@ -838,7 +867,7 @@ select optgroup {
     position: sticky;
     top: 0;
     z-index: 10;
-    background: #0a0f1e;
+    background: #000000;
     border: 1px solid rgba(0, 240, 255, 0.3);
     border-radius: 8px;
     margin-bottom: 12px;
@@ -1154,12 +1183,12 @@ select optgroup {
     padding: 8px 12px;
     background: rgba(0, 240, 255, 0.06);
     border-radius: 8px;
-    font-size: 14px;
+    font-size: inherit;
 }
 .message-assistant {
     padding: 4px 0;
     color: #ffffff;
-    font-size: 16px;
+    font-size: inherit;
     line-height: 1.6;
 }
 
@@ -1208,7 +1237,7 @@ select optgroup {
     text-shadow: 0 0 10px rgba(123, 47, 190, 0.3);
 }
 .message-body {
-    font-size: 14px;
+    font-size: inherit;
     line-height: 1.7;
     color: #ffffff;
 }
@@ -1668,7 +1697,7 @@ select optgroup {
 .mobile-controls {
     display: none;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 
 @media (max-width: 768px) {
@@ -1700,7 +1729,9 @@ select optgroup {
     border: 1px solid rgba(0, 240, 255, 0.4);
     border-radius: 12px;
     padding: 10px 0;
-    min-width: 220px;
+    min-width: 260px;
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
     box-shadow: 0 15px 50px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 240, 255, 0.2);
     z-index: 99999;
     animation: menuSlide 0.2s ease;
@@ -1731,6 +1762,57 @@ select optgroup {
     font-size: 16px;
     width: 20px;
     text-align: center;
+}
+
+/* Hamburger menu - dropdown sections */
+.actions-menu-section {
+    padding: 8px 16px;
+}
+.actions-menu-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--cyan, #00f0ff);
+    margin-bottom: 6px;
+}
+.mobile-menu-select {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: var(--text, #e8ecf4);
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2399a0b0' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+.mobile-menu-select:focus {
+    outline: none;
+    border-color: var(--cyan, #00f0ff);
+    box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15);
+}
+.mobile-menu-select option,
+.mobile-menu-select optgroup {
+    background: #0f1423;
+    color: #e8ecf4;
+}
+.actions-menu-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 6px 0;
+}
+.actions-menu-item.danger {
+    color: #f85149;
+}
+.actions-menu-item.danger:hover {
+    background: rgba(248, 81, 73, 0.12);
+    color: #f85149;
 }
 
 /* ===== ACK BANNER ===== */
@@ -2399,20 +2481,17 @@ select optgroup {
         display: flex;
     }
 
-    /* Mobile: Make AXION response text white and larger for readability */
+    /* Mobile: Make AXION response text white and readable - font size controlled by display settings */
     .response-area {
-        font-size: 16px !important;
         line-height: 1.6 !important;
         color: var(--text) !important;
     }
     .response-area .message-assistant,
     .response-area .message-user {
         color: var(--text) !important;
-        font-size: 16px !important;
     }
     .live-activity-content {
         color: var(--text) !important;
-        font-size: 15px !important;
         line-height: 1.6 !important;
     }
     .streaming-progress .message-assistant {
@@ -2473,8 +2552,8 @@ select optgroup {
         position: fixed !important;
         top: 50px !important;
         right: 10px !important;
-        left: auto !important;
-        min-width: 200px;
+        left: 10px !important;
+        min-width: unset;
         max-width: calc(100vw - 20px);
     }
     .actions-menu-item {
@@ -2483,19 +2562,6 @@ select optgroup {
     }
     .menu-icon {
         font-size: 22px;
-    }
-    .project-select {
-        min-width: 100px;
-        max-width: 120px;
-        font-size: 10px;
-        padding: 4px 6px;
-    }
-    .model-select {
-        min-width: 90px;
-        max-width: 110px;
-        font-size: 10px;
-        padding: 6px 6px;
-        min-height: 32px;
     }
 
     /* Skills popup mobile */

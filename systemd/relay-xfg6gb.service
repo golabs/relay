@@ -1,0 +1,17 @@
+[Unit]
+Description=Chat Relay Web UI (xfg6gb on port 6001)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/clawd/projects/relay/chat-relay.py
+WorkingDirectory=/opt/clawd/projects/relay
+Restart=always
+RestartSec=5
+User=axion
+Environment=HOME=/home/axion
+Environment=RELAY_USER=xfg6gb
+Environment=RELAY_PORT=6001
+
+[Install]
+WantedBy=multi-user.target

@@ -32,6 +32,8 @@
     var voiceSettings = JSON.parse(localStorage.getItem('chatRelayVoices') || '{}');
     var voiceAliases = JSON.parse(localStorage.getItem('chatRelayVoiceAliases') || '{}');
     var savedProject = localStorage.getItem('chatRelayProject') || '';
+    var currentUser = localStorage.getItem('chatRelayUser') || 'axion';
+    var currentUserData = null;  // Loaded from /api/users, includes inputPanelName
     var chatHistory = [];
     var selectedHistoryIndex = -1;
     var sidebarCollapsed = localStorage.getItem('chatRelaySidebarCollapsed') === 'true';
@@ -516,13 +518,25 @@
 
     // Update personality button states
     // Apply saved font sizes on load
-    function applyDisplaySettings() {
+    function applyAxionFontSize(size) {
+        var px = size + 'px';
         if (responseArea) {
-            responseArea.style.setProperty('font-size', displaySettings.axionFontSize + 'px', 'important');
+            responseArea.style.setProperty('font-size', px, 'important');
+            // Also set on child message elements so they inherit properly
+            responseArea.querySelectorAll('.message-assistant, .message-user, .message-body').forEach(function(el) {
+                el.style.setProperty('font-size', px, 'important');
+            });
         }
         if (liveActivityContent) {
-            liveActivityContent.style.setProperty('font-size', displaySettings.axionFontSize + 'px', 'important');
+            liveActivityContent.style.setProperty('font-size', px, 'important');
+            liveActivityContent.querySelectorAll('.message-assistant, .message-user, .message-body').forEach(function(el) {
+                el.style.setProperty('font-size', px, 'important');
+            });
         }
+    }
+
+    function applyDisplaySettings() {
+        applyAxionFontSize(displaySettings.axionFontSize);
         if (inputArea) {
             inputArea.style.setProperty('font-size', displaySettings.brettFontSize + 'px', 'important');
         }
@@ -1136,9 +1150,118 @@
         if (mobile) mobile.value = value;
     }
 
+    // ========== USER MANAGEMENT ==========
+
+    async function loadUsers() {
+        try {
+            var res = await fetch('/api/users');
+            var data = await res.json();
+
+            // Store current user data
+            currentUserData = data.users.find(function(u) { return u.id === currentUser; });
+            if (!currentUserData) {
+                currentUserData = data.users[0]; // fallback to first user
+            }
+
+            // Update panel name dynamically
+            updateInputPanelName();
+
+            var selects = [
+                document.getElementById('userSelect'),
+                document.getElementById('userSelectMobile')
+            ].filter(Boolean);
+
+            selects.forEach(function(select) {
+                while (select.firstChild) select.removeChild(select.firstChild);
+                data.users.forEach(function(u) {
+                    var opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.textContent = u.name + (u.admin ? ' ★' : '');
+                    if (u.id === currentUser) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            });
+        } catch (e) {
+            console.log('Failed to load users:', e);
+        }
+    }
+
+    function updateInputPanelName() {
+        if (!currentUserData) return;
+
+        var panelName = currentUserData.inputPanelName || 'BRETT';
+
+        // Update the panel header
+        var brettPaneHeader = document.querySelector('#brettPane .pane-header span');
+        if (brettPaneHeader) {
+            brettPaneHeader.textContent = panelName;
+        }
+
+        // Update display settings labels
+        var brettSizeHeader = document.querySelector('label[for="brettFontSize"]');
+        if (brettSizeHeader) {
+            brettSizeHeader.innerHTML = panelName + ' Font Size: <span id="brettSizeLabel">14px</span>';
+        }
+
+        // Update voice settings labels (multiple TTS engines)
+        var voiceLabels = [
+            { selector: 'label[for="brettEdgeVoice"]', text: panelName + ' Edge Voice:' },
+            { selector: 'label[for="brettPiperVoice"]', text: panelName + ' Piper Voice:' },
+            { selector: 'label[for="brettElevenVoice"]', text: panelName + ' ElevenLabs Voice:' },
+            { selector: 'label[for="brettVoice"]', text: panelName + ' Voice:' }
+        ];
+
+        voiceLabels.forEach(function(item) {
+            var label = document.querySelector(item.selector);
+            if (label) label.textContent = item.text;
+        });
+
+        // Update test buttons
+        var testButtons = document.querySelectorAll('button[onclick*="brett"]');
+        testButtons.forEach(function(btn) {
+            var text = btn.textContent;
+            if (text.includes('BRETT')) {
+                btn.textContent = text.replace('BRETT', panelName);
+            }
+        });
+
+        // Update help modal text
+        var helpTexts = [
+            { id: 'helpClearInput', text: 'Clear ' + panelName + ' input' },
+            { id: 'helpReadInput', text: 'Read ' + panelName + ' aloud' },
+            { id: 'helpAxionRead', text: 'Read Axion aloud (pauses ' + panelName + ' voice)' }
+        ];
+
+        helpTexts.forEach(function(item) {
+            var el = document.getElementById(item.id);
+            if (el) el.textContent = item.text;
+        });
+    }
+
+    async function switchUser(userId) {
+        currentUser = userId;
+        localStorage.setItem('chatRelayUser', userId);
+
+        // Sync both user selects
+        ['userSelect', 'userSelectMobile'].forEach(function(id) {
+            var sel = document.getElementById(id);
+            if (sel) sel.value = userId;
+        });
+
+        // Reload user data to get new panel name
+        await loadUsers();
+
+        // Reload projects for this user
+        loadProjects();
+        showToast('Switched to ' + userId, 'success');
+    }
+    window.switchUser = switchUser;
+
     async function loadProjects() {
         try {
-            var res = await fetch('/api/projects');
+            var url = '/api/projects';
+            if (currentUser) url += '?user=' + encodeURIComponent(currentUser);
+            var res = await fetch(url);
             var data = await res.json();
             var selects = [
                 document.getElementById('projectSelect'),
@@ -1155,12 +1278,20 @@
                 defaultOpt.value = '';
                 defaultOpt.textContent = 'No Project';
                 select.appendChild(defaultOpt);
-                // Add project options
+                // Add project options - use path as value, display as label
                 data.projects.forEach(function(p) {
                     var opt = document.createElement('option');
-                    opt.value = p;
-                    opt.textContent = p;
-                    if (p === savedProject) opt.selected = true;
+                    // p is now an object: {name, path, owner, display}
+                    if (typeof p === 'object') {
+                        opt.value = p.path;
+                        opt.textContent = p.display;
+                        if (p.path === savedProject) opt.selected = true;
+                    } else {
+                        // Backwards compatibility if API returns strings
+                        opt.value = p;
+                        opt.textContent = p;
+                        if (p === savedProject) opt.selected = true;
+                    }
                     select.appendChild(opt);
                 });
             });
@@ -1560,6 +1691,7 @@
         renderHistorySidebar();
         addCopyButtons();
         renderMermaidDiagrams();
+        applyAxionFontSize(displaySettings.axionFontSize);
 
         // Scroll after all rendering is complete - use setTimeout to ensure DOM updates are flushed
         setTimeout(function() {
@@ -1595,6 +1727,7 @@
         responseArea.innerHTML = html;
         addCopyButtons();
         renderMermaidDiagrams();
+        applyAxionFontSize(displaySettings.axionFontSize);
     }
 
     function selectHistoryItem(index) {
@@ -3019,30 +3152,28 @@
                         showQuestionsModal(data.questions || [], data.response_so_far || '');
                     }
                 } else if (data.status === 'pending') {
-                    // Job is queued but not started yet - show waiting status only
+                    // Job is queued but not started yet - show waiting status with user message preserved
                     statusEl.textContent = 'Waiting for Claude... (' + elapsed + 's)';
                     showAckBanner('Message queued - waiting for Claude...', true);
-                    updateLiveBox(
-                        '<div class="live-chunk"><span class="thinking">Waiting for Claude' + '.'.repeat(dots) + '</span></div>',
-                        'Waiting... (' + elapsed + 's)'
-                    );
+                    var waitHtml = '<div class="message-user" style="margin-bottom:8px;color:#00f0ff;"><strong>You:</strong><br>' + renderMarkdown(pendingUserMessage) + '</div>' +
+                        '<div class="live-chunk"><span class="thinking">Waiting for Claude' + '.'.repeat(dots) + '</span></div>';
+                    updateLiveBox(waitHtml, 'Waiting... (' + elapsed + 's)');
                 } else if (data.status === 'processing') {
                     var activityText = data.activity || ('Thinking' + '.'.repeat(dots));
                     statusEl.textContent = activityText + ' (' + elapsed + 's)';
                     showAckBanner(activityText + ' (' + elapsed + 's)', true);
 
                     if (data.stream && data.stream.length > 0) {
-                        // Show only Claude's response stream - no user message
+                        // Show Claude's response stream with user message preserved
                         var streamText = parseStreamJson(data.stream);
-                        updateLiveBoxWithChunk(streamText, '', activityText + ' (' + elapsed + 's)');
+                        updateLiveBoxWithChunk(streamText, pendingUserMessage, activityText + ' (' + elapsed + 's)');
                         addCopyButtons();
                         renderMermaidDiagrams();
                     } else {
-                        // Still waiting for content - show thinking indicator only
-                        updateLiveBox(
-                            '<div class="live-chunk"><span class="thinking">' + activityText + '</span></div>',
-                            activityText + ' (' + elapsed + 's)'
-                        );
+                        // Still waiting for content - show user message + thinking indicator
+                        var thinkHtml = '<div class="message-user" style="margin-bottom:8px;color:#00f0ff;"><strong>You:</strong><br>' + renderMarkdown(pendingUserMessage) + '</div>' +
+                            '<div class="live-chunk"><span class="thinking">' + activityText + '</span></div>';
+                        updateLiveBox(thinkHtml, activityText + ' (' + elapsed + 's)');
                     }
                 }
             } catch (e) {
@@ -3224,17 +3355,16 @@
                     if (data.stream && data.stream.length > 0) {
                         var streamText = parseStreamJson(data.stream);
 
-                        // Show ONLY Claude's response in live box - no user message
-                        updateLiveBoxWithChunk(streamText, '', activityText + ' (' + elapsed + 's)');
+                        // Show Claude's response with user message preserved
+                        updateLiveBoxWithChunk(streamText, pendingUserMessage, activityText + ' (' + elapsed + 's)');
                         addCopyButtons();
                         renderMermaidDiagrams();
                         // Auto-read is handled inside updateLiveBoxWithChunk
                     } else {
-                        // Still waiting for content - show thinking indicator only
-                        updateLiveBox(
-                            '<div class="live-chunk"><span class="thinking">' + activityText + '</span></div>',
-                            activityText + ' (' + elapsed + 's)'
-                        );
+                        // Still waiting for content - show user message + thinking indicator
+                        var thinkHtml2 = '<div class="message-user" style="margin-bottom:8px;color:#00f0ff;"><strong>You:</strong><br>' + renderMarkdown(pendingUserMessage) + '</div>' +
+                            '<div class="live-chunk"><span class="thinking">' + activityText + '</span></div>';
+                        updateLiveBox(thinkHtml2, activityText + ' (' + elapsed + 's)');
                     }
                 }
             } catch (err) {
@@ -4670,25 +4800,55 @@
 
     // Handle mobile tab switching / screen lock - restart mic when returning
     document.addEventListener('visibilitychange', function() {
-        if (!SR || !recognition) return;
         if (document.hidden) {
-            // Page going to background - stop cleanly to release audio on mobile
-            if (isRecording) {
+            // Page going to background - stop voice cleanly to release audio on mobile
+            if (SR && recognition && isRecording) {
                 console.log('Page hidden, stopping voice cleanly');
                 if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
                 try { recognition.stop(); } catch(e) {}
             }
         } else {
-            // Page visible again - restart if was recording
-            if (isRecording) {
+            // Page visible again - refresh history and check for completed jobs
+            var project = getSelectedProject();
+            if (project) {
+                // If we had an active job, check if it completed while we were away
+                if (currentJobId) {
+                    fetch('/api/chat/status', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({job_id: currentJobId})
+                    })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.status === 'complete') {
+                                // Job completed while phone was off - show the result
+                                stopStreaming();
+                                stopPolling();
+                                var result = data.result || '';
+                                var cleanedText = cleanLiveText(result);
+                                updateLiveBoxWithChunk(cleanedText, pendingUserMessage, 'Complete');
+                                currentJobId = null;
+                                // Reload history to get the watcher-saved entry
+                                loadChatHistory(project, true);
+                            }
+                        })
+                        .catch(function() {
+                            // If status check fails, just reload history
+                            loadChatHistory(project, true);
+                        });
+                } else {
+                    // No active job - just reload history in case something completed
+                    loadChatHistory(project, true);
+                }
+            }
+
+            // Restart voice if was recording
+            if (SR && recognition && isRecording) {
                 console.log('Page visible, restarting voice recognition');
-                // Clear any stale timers
                 if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
-                // Stop first to reset state, then restart with longer mobile delay
                 try { recognition.stop(); } catch(e) {}
                 voiceRestartAttempts = 0;
                 voiceIsStarting = false;
-                // iOS/mobile needs 1-2s to re-acquire mic after app switch
                 var visDelay = isMobile ? 1500 : 500;
                 voiceRestartTimer = setTimeout(safeStartRecognition, visDelay);
             }
@@ -4811,6 +4971,12 @@
     var lastActivitySpoken = '';
     var activitySpeakCooldown = false;
     function speakActivityUpdate(text) {
+        // DISABLED when auto-read is on - the narrative text already describes what's happening
+        // Activity announcements would compete with and override the actual response text
+        // Only use activity updates when auto-read is OFF (for status-only mode)
+        return;
+
+        // Legacy code below (disabled):
         // Only speak if auto-read is enabled and we're not in cooldown
         if (!window.autoReadEnabled) return;
         if (activitySpeakCooldown) return;
@@ -4830,21 +4996,57 @@
         // Use a quieter, faster announcement
         var cleanedText = text.replace(/[📖✏️📝💻🔍📂🤖📋🌐🔎❓🔧]/g, '').trim();
 
-        // Use Edge TTS for activity announcements (faster)
+        // Route through the selected TTS engine (same as processSpeakQueue)
         if (voiceSettings.engine === 'edge-tts') {
             var edgeVoice = voiceSettings.axionEdgeVoice || 'en-US-GuyNeural';
             speakWithEdgeTts(cleanedText, edgeVoice, function() {});
+        } else if (voiceSettings.engine === 'piper') {
+            var piperVoice = voiceSettings.axionPiperVoice || voiceSettings.piperVoice || 'amy';
+            speakWithPiper(cleanedText, piperVoice, function() {});
+        } else if (voiceSettings.engine === 'elevenlabs' && voiceSettings.axionElevenVoice) {
+            speakWithElevenLabs(cleanedText, voiceSettings.axionElevenVoice,
+                voiceSettings.elevenStability || 0.5, voiceSettings.elevenSimilarity || 0.75, function() {});
         } else if (window.speechSynthesis) {
-            // Fallback to browser speech
+            // Browser speech as final fallback
             var utterance = new SpeechSynthesisUtterance(cleanedText);
-            utterance.rate = 1.2; // Slightly faster
-            utterance.volume = 0.7; // Slightly quieter
+            utterance.rate = 1.2;
+            utterance.volume = 0.7;
             window.speechSynthesis.speak(utterance);
         }
     }
 
     // Expose for use in parseStreamJson
     window.speakActivityUpdate = speakActivityUpdate;
+
+    // Browser speech fallback - used when TTS engines fail or as default
+    function speakWithBrowser(cleanedText, panel) {
+        if (!window.speechSynthesis) {
+            console.error('Browser speech synthesis not available');
+            isSpeakingText = false;
+            restoreVoiceAfterSpeak();
+            return;
+        }
+        var u = new SpeechSynthesisUtterance(cleanedText);
+        var voiceName = panel === 'axion' ? voiceSettings.axion : voiceSettings.brett;
+        if (voiceName) {
+            var voices = window.speechSynthesis.getVoices();
+            var voice = voices.find(function(v) { return v.name === voiceName; });
+            if (voice) u.voice = voice;
+        }
+        if (panel === 'axion') {
+            u.pitch = voiceSettings.axionPitch || 1.0;
+            u.rate = voiceSettings.axionRate || 1.0;
+        }
+        u.onend = function() {
+            isSpeakingText = false;
+            restoreVoiceAfterSpeak();
+        };
+        u.onerror = function() {
+            isSpeakingText = false;
+            restoreVoiceAfterSpeak();
+        };
+        window.speechSynthesis.speak(u);
+    }
 
     function speak(text, panel) {
         cancelAllSpeech();
@@ -4865,6 +5067,9 @@
 
         // Clean markdown for natural speech
         var cleanedText = cleanTextForSpeech(text);
+
+        // Store panel for fallback use
+        var _panel = panel;
 
         // Route to Edge TTS if selected
         if (voiceSettings.engine === 'edge-tts') {
@@ -4909,31 +5114,8 @@
             }
         }
 
-        // Browser speech engine (default)
-        var u = new SpeechSynthesisUtterance(cleanedText);
-        var voiceName = panel === 'axion' ? voiceSettings.axion : voiceSettings.brett;
-        if (voiceName) {
-            var voices = window.speechSynthesis.getVoices();
-            var voice = voices.find(function(v) { return v.name === voiceName; });
-            if (voice) u.voice = voice;
-        }
-        // Apply pitch and rate settings for AXION voice
-        if (panel === 'axion') {
-            u.pitch = voiceSettings.axionPitch || 1.0;
-            u.rate = voiceSettings.axionRate || 1.0;
-        }
-
-        u.onend = function() {
-            isSpeakingText = false;
-            restoreVoiceAfterSpeak();
-        };
-
-        u.onerror = function() {
-            isSpeakingText = false;
-            restoreVoiceAfterSpeak();
-        };
-
-        window.speechSynthesis.speak(u);
+        // Browser speech engine (default/fallback)
+        speakWithBrowser(cleanedText, panel);
     }
 
     // Utility: cancel ALL speech engines (browser + Edge TTS)
@@ -4957,6 +5139,13 @@
     function stopSpeaking() {
         cancelAllSpeech();
         isSpeakingText = false;
+
+        // Reset read aloud button styling
+        ['readInputBtn', 'readResponseBtn'].forEach(function(id) {
+            var btn = document.getElementById(id);
+            if (btn) { btn.style.background = ''; btn.style.borderColor = ''; }
+        });
+
         // Don't restore main recognition if Q&A voice is active
         var qaActive = typeof qaState !== 'undefined' && qaState && qaState.isVoiceActive;
         if (qaActive) return;
@@ -4979,9 +5168,14 @@
     window.stopSpeaking = stopSpeaking;
 
     function readResponse() {
+        var readBtn = document.getElementById('readResponseBtn');
         // Toggle: if already speaking, stop
         if (isSpeakingText) {
             stopSpeaking();
+            if (readBtn) {
+                readBtn.style.background = '';
+                readBtn.style.borderColor = '';
+            }
             return;
         }
 
@@ -5026,12 +5220,31 @@
             return;
         }
 
+        // Visual feedback - turn green
+        if (readBtn) {
+            readBtn.style.background = 'var(--success)';
+            readBtn.style.borderColor = 'var(--success)';
+        }
+
         speak(text, 'axion');
+
+        // Monitor isSpeakingText to reset button when speech ends
+        var checkSpeechDone = setInterval(function() {
+            if (!isSpeakingText) {
+                clearInterval(checkSpeechDone);
+                if (readBtn) {
+                    readBtn.style.background = '';
+                    readBtn.style.borderColor = '';
+                }
+            }
+        }, 500);
+
         showToast('Reading Axion response... say "stop read" to stop', 'success');
     }
     window.readResponse = readResponse;
 
     function readInput() {
+        var readBtn = document.getElementById('readInputBtn');
         // Toggle: if already speaking, stop
         if (isSpeakingText) {
             stopSpeaking();
@@ -5039,7 +5252,26 @@
         }
         var text = inputArea.value;
         if (!text) { showToast('Nothing to read', 'error'); return; }
+
+        // Visual feedback - turn green
+        if (readBtn) {
+            readBtn.style.background = 'var(--success)';
+            readBtn.style.borderColor = 'var(--success)';
+        }
+
         speak(text, 'brett');
+
+        // Monitor isSpeakingText to reset button when speech ends
+        var checkSpeechDone = setInterval(function() {
+            if (!isSpeakingText) {
+                clearInterval(checkSpeechDone);
+                if (readBtn) {
+                    readBtn.style.background = '';
+                    readBtn.style.borderColor = '';
+                }
+            }
+        }, 500);
+
         showToast('Reading... click again to stop', 'success');
     }
     window.readInput = readInput;
@@ -5071,6 +5303,7 @@
     // ========== AUTO-READ FUNCTIONALITY ==========
     // Default to ON if not explicitly set
     var autoReadEnabled = voiceSettings.autoRead !== false;
+    window.autoReadEnabled = autoReadEnabled; // Expose for parseStreamJson and speakActivityUpdate
     var lastSpokenText = '';
     var speakQueue = [];
     var isSpeaking = false;
@@ -5094,6 +5327,7 @@
 
     function toggleAutoRead() {
         autoReadEnabled = !autoReadEnabled;
+        window.autoReadEnabled = autoReadEnabled; // Keep window reference in sync
         voiceSettings.autoRead = autoReadEnabled;
         localStorage.setItem('chatRelayVoices', JSON.stringify(voiceSettings));
         updateAutoReadButton();
@@ -5223,6 +5457,15 @@
     function speakNewContent(cleanedChunk) {
         if (!autoReadEnabled || !cleanedChunk) return;
 
+        // OPTIMIZATION: Clear old queue to stay synced with latest text
+        // When streaming, prioritize recent content over completing backlog
+        // This prevents voice from lagging 10+ seconds behind displayed text
+        if (speakQueue.length > 2) {
+            // Keep only the currently speaking item + 1 queued item
+            // This allows smooth transition but skips old backlog
+            speakQueue.splice(2);
+        }
+
         // Text is already cleaned by cleanLiveText - just do minimal additional filtering
         var textOnly = cleanedChunk
             .replace(/<[^>]+>/g, '')  // Remove any remaining HTML tags
@@ -5259,14 +5502,35 @@
         var sentences = textOnly.match(/[^.!?;:]+[.!?]+\s*|\.{3}\s*[^.!?;:]+|[^.!?;:]+[;:]\s+|[^.!?;:]{40,}(?=\s|$)/g);
 
         if (sentences && sentences.length > 0) {
+            // OPTIMIZATION: Batch sentences into larger chunks for faster playback
+            // Instead of queueing 10 individual sentences (causing lag), batch into 2-3 chunks
+            var batch = [];
+            var batchLength = 0;
+            var maxBatchLength = 150; // ~150 chars per batch for responsive playback
+
             sentences.forEach(function(sentence) {
                 var trimmed = sentence.trim();
                 if (!trimmed || trimmed.length < 4) return;
                 // Skip lines that look like code (lots of symbols, brackets, etc)
                 var codeChars = (trimmed.match(/[{}\[\]()=<>;\/\\|&^%$#@!~`]/g) || []).length;
                 if (codeChars > trimmed.length * 0.15 && trimmed.length > 10) return;
-                queueSpeech(trimmed);
+
+                // Add to batch
+                batch.push(trimmed);
+                batchLength += trimmed.length;
+
+                // Flush batch when it reaches target size
+                if (batchLength >= maxBatchLength) {
+                    queueSpeech(batch.join(' '));
+                    batch = [];
+                    batchLength = 0;
+                }
             });
+
+            // Flush remaining batch
+            if (batch.length > 0) {
+                queueSpeech(batch.join(' '));
+            }
         } else if (textOnly.length > 10) {
             // No sentence structure but has content - speak it
             queueSpeech(textOnly);
@@ -5283,6 +5547,14 @@
 
     function processSpeakQueue() {
         if (isSpeaking || speakQueue.length === 0 || !autoReadEnabled) return;
+
+        // OPTIMIZATION: If queue is getting backed up (5+ items), skip to latest
+        // This keeps voice in sync with text during fast streaming
+        if (speakQueue.length > 5) {
+            console.log('Speech queue backed up (' + speakQueue.length + ' items), skipping to latest');
+            // Keep only the last 2 items
+            speakQueue = speakQueue.slice(-2);
+        }
 
         isSpeaking = true;
         var text = speakQueue.shift();
@@ -5453,7 +5725,7 @@
 
     function previewAxionFont(size) {
         document.getElementById('axionSizeLabel').textContent = size + 'px';
-        responseArea.style.setProperty('font-size', size + 'px', 'important');
+        applyAxionFontSize(size);
     }
     window.previewAxionFont = previewAxionFont;
 
@@ -6021,7 +6293,18 @@
         })
         .catch(function(err) {
             console.error('Piper TTS error:', err);
-            if (onEnd) onEnd();
+            // Fall back to browser speech instead of silence
+            if (window.speechSynthesis && text) {
+                console.log('Piper failed, falling back to browser speech');
+                isSpeakingText = true;
+                var u = new SpeechSynthesisUtterance(text);
+                u.onend = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                u.onerror = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                window.speechSynthesis.speak(u);
+            } else {
+                isSpeakingText = false;
+                if (onEnd) onEnd();
+            }
         });
     }
 
@@ -6297,8 +6580,18 @@
         })
         .catch(function(err) {
             console.error('ElevenLabs TTS error:', err);
-            isSpeakingText = false;
-            if (onEnd) onEnd();
+            // Fall back to browser speech instead of silence
+            if (window.speechSynthesis && text) {
+                console.log('ElevenLabs failed, falling back to browser speech');
+                isSpeakingText = true;
+                var u = new SpeechSynthesisUtterance(text);
+                u.onend = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                u.onerror = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                window.speechSynthesis.speak(u);
+            } else {
+                isSpeakingText = false;
+                if (onEnd) onEnd();
+            }
         });
     }
 
@@ -6480,14 +6773,24 @@
         })
         .catch(function(err) {
             console.error('Edge TTS error:', err);
-            isSpeakingText = false;
             edgeTtsErrorCount++;
             if (edgeTtsErrorCount >= edgeTtsMaxErrors) {
-                showToast('TTS server unavailable. Check if server is running.', 'error');
+                showToast('TTS server unavailable, using browser voice', 'error');
                 speakQueue = []; // Clear the queue to stop retries
                 edgeTtsErrorCount = 0;
             }
-            if (onEnd) onEnd();
+            // Fall back to browser speech instead of silence
+            if (window.speechSynthesis && text) {
+                console.log('Falling back to browser speech');
+                isSpeakingText = true;
+                var u = new SpeechSynthesisUtterance(text);
+                u.onend = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                u.onerror = function() { isSpeakingText = false; if (onEnd) onEnd(); };
+                window.speechSynthesis.speak(u);
+            } else {
+                isSpeakingText = false;
+                if (onEnd) onEnd();
+            }
         });
     }
 
@@ -8409,10 +8712,43 @@
             var data = await res.json();
 
             if (data.status === 'complete') {
-                // Success - put formatted text back in input
-                inputArea.value = data.result;
+                // Success - display formatted text in Brett panel (AXION response area)
+                var responseArea = document.getElementById('responseArea');
+                if (responseArea) {
+                    // Create a formatted message entry
+                    var timestamp = new Date();
+                    var timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    var dateStr = timestamp.toLocaleDateString([], {month: 'short', day: 'numeric'}) + ' ' + timeStr;
+
+                    var formattedHtml = '<div class="message-entry">' +
+                        '<div class="message-header"><span class="message-time">' + dateStr + '</span></div>' +
+                        '<div class="message-assistant" style="color:#ffffff;"><strong>Formatted TASK.md:</strong><br>' +
+                        renderMarkdown(data.result) + '</div>' +
+                        '</div>';
+
+                    // Append to response area
+                    responseArea.innerHTML += formattedHtml;
+
+                    // Scroll to show the new content
+                    var axionPane = document.getElementById('axionPaneContent');
+                    if (axionPane) {
+                        setTimeout(function() {
+                            axionPane.scrollTop = axionPane.scrollHeight;
+                        }, 10);
+                    }
+
+                    // Re-apply formatting enhancements
+                    addCopyButtons();
+                    renderMermaidDiagrams();
+                    applyAxionFontSize(displaySettings.axionFontSize);
+                }
+
+                // Clear the input area
+                inputArea.value = '';
+                updateLineNumbers();
+
                 textWasFormatted = true;  // Skip agent detection on next Send
-                showToast('Text formatted', 'success');
+                showToast('Text formatted and displayed in AXION panel', 'success');
                 hideLiveBox();
                 isFormatting = false;
                 formatJobId = null;
@@ -9549,6 +9885,7 @@
         // Turn off auto-read if it was on
         if (autoReadEnabled) {
             autoReadEnabled = false;
+            window.autoReadEnabled = false;
             updateAutoReadButton();
             cancelAllSpeech();
             speakQueue = [];
@@ -9593,6 +9930,7 @@
         // Restore voice state that was active before file browser opened
         if (fileBrowserVoiceState.wasAutoReadOn) {
             autoReadEnabled = true;
+            window.autoReadEnabled = true;
             updateAutoReadButton();
         }
 
@@ -11925,6 +12263,7 @@
     // ========== INITIALIZATION ==========
     window.speechSynthesis.onvoiceschanged = populateVoices;
 
+    loadUsers();
     loadProjects();
     loadModelPreference();  // Load saved model selection
     initSidebar();
@@ -12502,6 +12841,7 @@ async function createNewProject() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: name,
+                user: currentUser,
                 init_git: initGit ? initGit.checked : true,
                 copy_template: copyTemplate ? copyTemplate.checked : true
             })
@@ -12517,36 +12857,15 @@ async function createNewProject() {
             setTimeout(async function() {
                 // Fetch fresh project list
                 try {
-                    var res = await fetch('/api/projects');
-                    var projectData = await res.json();
-                    var selects = [
-                        document.getElementById('projectSelect'),
-                        document.getElementById('projectSelectMobile')
-                    ].filter(Boolean);
+                    // Reload projects (handles new object format and user filtering)
+                    await loadProjects();
 
-                    selects.forEach(function(select) {
-                        // Clear existing options
-                        while (select.firstChild) {
-                            select.removeChild(select.firstChild);
-                        }
-                        // Add default option
-                        var defaultOpt = document.createElement('option');
-                        defaultOpt.value = '';
-                        defaultOpt.textContent = 'No Project';
-                        select.appendChild(defaultOpt);
-                        // Add project options
-                        projectData.projects.forEach(function(p) {
-                            var opt = document.createElement('option');
-                            opt.value = p;
-                            opt.textContent = p;
-                            select.appendChild(opt);
-                        });
-                        // Select the new project
-                        select.value = name;
-                    });
+                    // Find the new project path and select it
+                    var newProjectPath = currentUser + '/' + name;
+                    syncProjectSelects(newProjectPath);
 
                     // Save to localStorage and trigger change
-                    localStorage.setItem('chatRelayProject', name);
+                    localStorage.setItem('chatRelayProject', newProjectPath);
                     var mainSelect = document.getElementById('projectSelect');
                     if (mainSelect) {
                         mainSelect.dispatchEvent(new Event('change'));

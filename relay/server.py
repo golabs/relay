@@ -103,9 +103,15 @@ class ChatRelayHandler(SimpleHTTPRequestHandler):
             self._serve_html_cached()
         elif self.path == "/favicon.svg" or self.path == "/favicon.ico":
             self._serve_favicon()
-        elif self.path == "/api/projects":
+        elif self.path == "/api/users":
             api = APIHandler(self._json, self._send_error_json)
-            api.handle_projects()
+            api.handle_users()
+        elif self.path.startswith("/api/projects"):
+            parsed = urlparse(self.path)
+            params = parse_qs(parsed.query)
+            user_filter = params.get("user", [None])[0]
+            api = APIHandler(self._json, self._send_error_json)
+            api.handle_projects(user=user_filter)
         elif self.path == "/api/health":
             api = APIHandler(self._json, self._send_error_json)
             api.handle_health()

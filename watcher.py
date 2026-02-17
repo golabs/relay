@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, Future
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Set
 
-# Configure logging
+# Configure logging - write to both stderr and log file
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -27,10 +27,34 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-QUEUE_DIR = Path(__file__).parent / ".queue"
-TEMP_DIR = Path(__file__).parent / ".temp"
+def _setup_file_logging(log_path: Path):
+    """Add a rotating file handler to capture logs to disk."""
+    from logging.handlers import RotatingFileHandler
+    handler = RotatingFileHandler(
+        log_path, maxBytes=5 * 1024 * 1024, backupCount=3  # 5MB, keep 3 backups
+    )
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
+    ))
+    logging.getLogger().addHandler(handler)
+
+# Multi-instance support: RELAY_USER env var determines which user's queue to watch
+RELAY_USER = os.environ.get("RELAY_USER", "axion")
+RELAY_DIR = Path(__file__).parent
+
+def _user_dir(base_name):
+    """Get user-specific directory path. Axion uses original names for compat."""
+    if RELAY_USER == "axion":
+        return RELAY_DIR / base_name
+    return RELAY_DIR / f"{base_name}-{RELAY_USER}"
+
+QUEUE_DIR = _user_dir(".queue")
+HISTORY_DIR = _user_dir(".history")
+HISTORY_DIR.mkdir(exist_ok=True)
+TEMP_DIR = _user_dir(".temp")
 TEMP_DIR.mkdir(exist_ok=True)
-SCREENSHOTS_DIR = Path(__file__).parent / ".screenshots"
+SCREENSHOTS_DIR = _user_dir(".screenshots")
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
 # Heartbeat for health monitoring
@@ -123,6 +147,37 @@ def atomic_write_json(filepath: Path, data: dict):
         raise
 
 
+def save_to_history(project: str, user_msg: str, assistant_msg: str):
+    """Save a chat entry to project history (server-side, browser-independent).
+
+    This ensures history is preserved even if the browser is closed/asleep
+    when the job completes.
+    """
+    if not project or project == "default":
+        return
+    try:
+        history_file = HISTORY_DIR / f"{project}.json"
+        history_data = {"entries": []}
+        if history_file.exists():
+            try:
+                with open(history_file) as f:
+                    history_data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                history_data = {"entries": []}
+
+        history_data["entries"].append({
+            "user": user_msg,
+            "assistant": assistant_msg,
+            "timestamp": time.time()
+        })
+        # Keep last 100 entries
+        history_data["entries"] = history_data["entries"][-100:]
+        atomic_write_json(history_file, history_data)
+        logger.info(f"Saved history entry for project '{project}'")
+    except Exception as e:
+        logger.error(f"Failed to save history for project '{project}': {e}")
+
+
 def should_update_activity() -> bool:
     """Check if enough time has passed to update activity (batching)."""
     global _last_activity_update
@@ -175,31 +230,41 @@ def write_heartbeat(current_job=None, activity=None):
 PROJECTS_BASE = Path("/opt/clawd/projects")
 
 def get_project_dir(project: str) -> str:
-    """Get the directory for a project (auto-detect from projects folder)."""
+    """Get the directory for a project (auto-detect from projects folder).
+
+    Handles both simple project names ('relay') and user-scoped paths ('xfg6gb/myproject').
+    Returns the project directory path, or None if not found.
+    """
     if not project or project == "default":
         return None
 
-    # Check exact match first
+    # Check exact match first (handles both 'relay' and 'user/project')
+    # Path('/opt/clawd/projects') / 'user/project' correctly resolves to '/opt/clawd/projects/user/project'
     project_path = PROJECTS_BASE / project
     if project_path.exists():
         return str(project_path)
 
-    # Check case-insensitive
-    for p in PROJECTS_BASE.iterdir():
-        if p.is_dir() and p.name.lower() == project.lower():
-            return str(p)
+    # Check case-insensitive (only for simple names without /)
+    # Don't do case-insensitive matching for user/project paths to avoid confusion
+    if "/" not in project:
+        for p in PROJECTS_BASE.iterdir():
+            if p.is_dir() and p.name.lower() == project.lower():
+                return str(p)
 
-    # Check common aliases
-    aliases = {
-        "hubai": "HUBAi",
-        "claimsai": "ClaimsAI",
-        "claims": "ClaimsAI",
-    }
-    if project.lower() in aliases:
-        alias_path = PROJECTS_BASE / aliases[project.lower()]
-        if alias_path.exists():
-            return str(alias_path)
+        # Check common aliases
+        aliases = {
+            "hubai": "HUBAi",
+            "claimsai": "ClaimsAI",
+            "claims": "ClaimsAI",
+        }
+        if project.lower() in aliases:
+            alias_path = PROJECTS_BASE / aliases[project.lower()]
+            if alias_path.exists():
+                return str(alias_path)
 
+    # Project not found - log warning and return None
+    # The caller will handle this (e.g., use parent process cwd or show error)
+    logger.warning(f"Project directory not found: {project} (full path would be: {project_path})")
     return None
 
 
@@ -813,6 +878,11 @@ def process_external_api_job(job_id: str, model: str, message: str, project: str
         logger.info(f"Job {job_id} completed via {model} in {elapsed:.1f}s")
         write_heartbeat(job_id, "Complete")
 
+        # Save to history (server-side, browser-independent)
+        job_type = job.get("job_type", "chat")
+        if job_type not in ("format",):
+            save_to_history(project, message, result)
+
         return True
 
     except requests.exceptions.Timeout:
@@ -897,6 +967,11 @@ def process_job(job_file: Path) -> bool:
 
         # Determine working directory from project
         cwd = get_project_dir(project)
+        if not cwd:
+            # Project directory not found - use /opt/clawd/projects as fallback
+            # This is better than using the watcher's cwd (/opt/clawd/projects/relay)
+            logger.warning(f"Project '{project}' not found, using /opt/clawd/projects as cwd")
+            cwd = str(PROJECTS_BASE)
 
         # Stream file for real-time output
         stream_file = QUEUE_DIR / f"{job_id}.stream"
@@ -946,7 +1021,7 @@ def process_job(job_file: Path) -> bool:
         # Format jobs use a fresh session every time (no conversation context needed)
         # Also limit to 1 turn - format should just return text, no tool use
         if job_type == "format":
-            format_session_id = f"fmt-{job_id}-{int(time.time())}"
+            format_session_id = str(uuid.uuid4())
             cmd.extend(["--session-id", format_session_id])
             cmd.extend(["--max-turns", "1"])
         else:
@@ -1357,6 +1432,10 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
         except Exception as e:
             logger.warning(f"Failed to update job status to completed: {e}")
 
+        # Save to history (server-side, browser-independent)
+        if job_type not in ("format",):
+            save_to_history(project, message, response)
+
         # Cleanup
         if stream_file.exists():
             stream_file.unlink()
@@ -1739,5 +1818,38 @@ def watch():
                 pass
         logger.info("Shutdown complete")
 
+def _acquire_pid_lock():
+    """Ensure only one watcher instance runs per queue directory.
+
+    Uses an exclusive file lock on the PID file so the OS releases it
+    automatically if the process dies.
+    """
+    pid_file = QUEUE_DIR / "watcher.pid"
+    # Open (or create) the PID file and keep the fd alive for the process lifetime
+    fd = open(pid_file, "w")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (IOError, OSError):
+        # Another instance holds the lock
+        try:
+            with open(pid_file) as f:
+                existing_pid = f.read().strip()
+        except Exception:
+            existing_pid = "unknown"
+        print(f"Another watcher is already running (PID {existing_pid}). Exiting.")
+        raise SystemExit(1)
+    fd.write(str(os.getpid()))
+    fd.flush()
+    # Keep fd open — closing it would release the lock
+    return fd
+
+
 if __name__ == "__main__":
+    # Set up file logging before anything else
+    _setup_file_logging(QUEUE_DIR / "watcher.log")
+
+    # Prevent duplicate instances
+    _pid_lock_fd = _acquire_pid_lock()
+    logger.info(f"Watcher starting (PID {os.getpid()})")
+
     watch()
