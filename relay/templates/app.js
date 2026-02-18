@@ -8712,43 +8712,20 @@
             var data = await res.json();
 
             if (data.status === 'complete') {
-                // Success - display formatted text in Brett panel (AXION response area)
-                var responseArea = document.getElementById('responseArea');
-                if (responseArea) {
-                    // Create a formatted message entry
-                    var timestamp = new Date();
-                    var timeStr = timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    var dateStr = timestamp.toLocaleDateString([], {month: 'short', day: 'numeric'}) + ' ' + timeStr;
+                // Success - put formatted text back into BRETT input panel for review/editing
+                var result = data.result || '';
 
-                    var formattedHtml = '<div class="message-entry">' +
-                        '<div class="message-header"><span class="message-time">' + dateStr + '</span></div>' +
-                        '<div class="message-assistant" style="color:#ffffff;"><strong>Formatted TASK.md:</strong><br>' +
-                        renderMarkdown(data.result) + '</div>' +
-                        '</div>';
+                // Strip any "# TASK.md - " prefix if Claude still adds it
+                result = result.replace(/^#\s*TASK\.md\s*-\s*/m, '# ');
 
-                    // Append to response area
-                    responseArea.innerHTML += formattedHtml;
-
-                    // Scroll to show the new content
-                    var axionPane = document.getElementById('axionPaneContent');
-                    if (axionPane) {
-                        setTimeout(function() {
-                            axionPane.scrollTop = axionPane.scrollHeight;
-                        }, 10);
-                    }
-
-                    // Re-apply formatting enhancements
-                    addCopyButtons();
-                    renderMermaidDiagrams();
-                    applyAxionFontSize(displaySettings.axionFontSize);
-                }
-
-                // Clear the input area
-                inputArea.value = '';
+                inputArea.value = result;
                 updateLineNumbers();
 
+                // Scroll input to top so user sees the title
+                inputArea.scrollTop = 0;
+
                 textWasFormatted = true;  // Skip agent detection on next Send
-                showToast('Text formatted and displayed in AXION panel', 'success');
+                showToast('Text formatted - review and hit Send', 'success');
                 hideLiveBox();
                 isFormatting = false;
                 formatJobId = null;

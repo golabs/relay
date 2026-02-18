@@ -856,7 +856,7 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
 Follow the EXACT structure from /reviewtask command (`.claude/commands/reviewtask.md`):
 
-# TASK.md - [Generate a Descriptive Title]
+# [Generate a Descriptive Title]
 
 ## Overview
 
@@ -892,7 +892,7 @@ So that [benefit/value]
 5. Keep the original meaning and intent
 6. Use checkboxes (- [ ]) for ALL requirements and criteria
 7. Generate a clear, descriptive title
-8. Return ONLY the formatted markdown above (starting with # TASK.md)
+8. Return ONLY the formatted markdown above (starting with the # title heading)
 9. Do NOT add preamble, explanations, or commentary
 10. Follow the exact section structure shown above
 
@@ -3032,20 +3032,7 @@ MERGED RESULT:"""
                 result = {"success": True, "message": f"Cleared {count} jobs from queue"}
 
             elif action == "restart-watcher":
-                subprocess.run(["pkill", "-f", "watcher.py"], capture_output=True)
-                time.sleep(1)
-                try:
-                    systemctl_result = subprocess.run(
-                        ["systemctl", "restart", "relay-watcher.service"],
-                        capture_output=True, timeout=10
-                    )
-                    if systemctl_result.returncode == 0:
-                        result = {"success": True, "message": "Watcher service restarted"}
-                    else:
-                        self._start_watcher_directly()
-                        result = {"success": True, "message": "Watcher restarted (direct)"}
-                except Exception as e:
-                    result = {"success": False, "error": f"Failed to restart watcher: {e}"}
+                result = self._restart_watcher_service()
 
             elif action == "cancel-current":
                 count = 0
@@ -3074,20 +3061,11 @@ MERGED RESULT:"""
                         except:
                             pass
 
-                subprocess.run(["pkill", "-f", "watcher.py"], capture_output=True)
-                time.sleep(1)
-                try:
-                    systemctl_result = subprocess.run(
-                        ["systemctl", "restart", "relay-watcher.service"],
-                        capture_output=True, timeout=10
-                    )
-                    if systemctl_result.returncode == 0:
-                        result = {"success": True, "message": f"Full reset complete. Cleared {cleared_count} jobs, watcher restarted."}
-                    else:
-                        self._start_watcher_directly()
-                        result = {"success": True, "message": f"Full reset complete (direct restart). Cleared {cleared_count} jobs."}
-                except Exception as e:
-                    result = {"success": False, "error": f"Queue cleared but watcher restart failed: {e}"}
+                watcher_result = self._restart_watcher_service()
+                if watcher_result.get("success"):
+                    result = {"success": True, "message": f"Full reset complete. Cleared {cleared_count} jobs, {watcher_result['message'].lower()}."}
+                else:
+                    result = {"success": False, "error": f"Queue cleared ({cleared_count} jobs) but watcher restart failed: {watcher_result.get('error', 'unknown')}"}
 
             elif action == "clear-session":
                 # Clear the session for a specific project (logout)
@@ -3210,19 +3188,68 @@ MERGED RESULT:"""
 
         return message
 
-    def _start_watcher_directly(self):
-        """Start watcher process directly."""
-        import os
-        from pathlib import Path
-        relay_dir = Path(__file__).parent.parent
-        log_file = open(QUEUE_DIR / "watcher.log", "w")
-        subprocess.Popen(
-            ["python3", str(relay_dir / "watcher.py")],
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            cwd=str(relay_dir),
-            start_new_session=True
+    def _restart_watcher_service(self):
+        """Restart the watcher via systemd, with targeted process kill.
+
+        Uses the watcher PID file to kill only the correct watcher instance
+        (not other users' watchers), then lets systemd restart it.
+        """
+        from .config import RELAY_USER
+
+        # Determine the correct systemd service name for this user
+        if RELAY_USER == "axion":
+            service_name = "relay-watcher.service"
+        else:
+            service_name = f"relay-watcher-{RELAY_USER}.service"
+
+        # Kill only THIS user's watcher via PID file (not all watchers)
+        pid_file = QUEUE_DIR / "watcher.pid"
+        killed = False
+        if pid_file.exists():
+            try:
+                with open(pid_file) as f:
+                    pid = int(f.read().strip())
+                os.kill(pid, 15)  # SIGTERM
+                killed = True
+                logger.info(f"Sent SIGTERM to watcher PID {pid}")
+            except (ValueError, ProcessLookupError, PermissionError):
+                pass
+
+        if not killed:
+            # Fallback: kill watcher processes matching this queue dir
+            relay_dir = str(Path(__file__).parent.parent)
+            subprocess.run(
+                ["pkill", "-f", f"python.*{relay_dir}/watcher.py"],
+                capture_output=True
+            )
+
+        # Wait for process to exit
+        time.sleep(2)
+
+        # Let systemd restart it (Restart=always in the service file)
+        try:
+            systemctl_result = subprocess.run(
+                ["systemctl", "restart", service_name],
+                capture_output=True, timeout=10
+            )
+            if systemctl_result.returncode == 0:
+                return {"success": True, "message": "Watcher service restarted"}
+        except Exception:
+            pass
+
+        # If systemctl failed, the watcher should still auto-restart via
+        # systemd's Restart=always policy after the kill above.
+        # Do NOT start a rogue process outside systemd - it causes conflicts.
+        # Wait a moment and check if systemd restarted it.
+        time.sleep(5)
+        check = subprocess.run(
+            ["systemctl", "is-active", service_name],
+            capture_output=True, text=True
         )
+        if check.stdout.strip() == "active":
+            return {"success": True, "message": "Watcher service restarted via systemd auto-restart"}
+        else:
+            return {"success": False, "error": f"Could not restart {service_name}. Try: sudo systemctl restart {service_name}"}
 
     # ========== EDGE TTS ENDPOINTS ==========
 

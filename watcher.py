@@ -72,6 +72,9 @@ _jobs_lock = threading.Lock()
 MAX_JOB_RUNTIME_SECONDS = 30 * 60  # 30 minutes max per job
 PROCESS_CHECK_INTERVAL = 0.5  # seconds
 
+# Shutdown coordination - allows jobs to detect when watcher is shutting down
+shutdown_event = threading.Event()
+
 # Activity update batching (reduce file I/O)
 ACTIVITY_UPDATE_INTERVAL = 2.0  # seconds between job activity file updates
 _last_activity_update = 0.0
@@ -201,11 +204,17 @@ def lock_file(filepath: Path, exclusive=True):
 
 
 def unlock_file(lock_handle):
-    """Release a file lock."""
+    """Release a file lock and remove the lock file from disk."""
     if lock_handle:
         try:
+            lock_path = lock_handle.name  # file path from open()
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
             lock_handle.close()
+            # Remove the .lock file from disk to prevent orphans
+            try:
+                os.unlink(lock_path)
+            except OSError:
+                pass
         except Exception as e:
             logger.warning(f"unlock_file error: {e}")
 
@@ -1353,24 +1362,30 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
             json_lines = [l for l in full_output.split('\n') if l.strip()]
             _, response = parse_stream_json_status(json_lines)
 
+            logger.info(f"Job {job_id}: raw output {len(full_output)} bytes, {len(json_lines)} JSON lines, parsed response {len(response)} chars")
+
             # If no response extracted from JSON, try to get from result message
             if not response:
+                logger.warning(f"Job {job_id}: parse_stream_json_status returned empty, trying fallback parsing")
                 for line in reversed(json_lines):
                     try:
                         obj = json.loads(line)
                         if obj.get("type") == "result":
                             response = obj.get("result", "")
+                            logger.info(f"Job {job_id}: got response from 'result' type ({len(response)} chars)")
                             break
                         elif obj.get("type") == "assistant":
                             msg = obj.get("message", {})
                             if msg.get("type") == "text":
                                 response = msg.get("text", "")
+                                logger.info(f"Job {job_id}: got response from 'assistant' type ({len(response)} chars)")
                     except json.JSONDecodeError:
                         pass
 
             # Detect API key / auth errors from raw output
             exit_code = process.returncode if process else None
             if not response or response == "No response":
+                logger.warning(f"Job {job_id}: No response extracted! exit_code={exit_code}, raw output (first 500): {full_output[:500]}")
                 auth_patterns = [
                     "invalid_api_key", "authentication_error", "Invalid API key",
                     "unauthorized", "401", "api_key", "expired",
@@ -1390,6 +1405,23 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
                 logger.error(f"Job {job_id}: Claude exited with code {exit_code}")
 
             response = response or "No response"
+
+        # If shutdown is in progress and we got no real response, reset job for retry
+        # This prevents "No response" results when the watcher is killed mid-job
+        if shutdown_event.is_set() and (not response or response == "No response"):
+            logger.warning(f"Job {job_id} interrupted by shutdown with no response - resetting to pending for retry")
+            job["status"] = "pending"
+            job["activity"] = "Queued (retry after restart)"
+            try:
+                atomic_write_json(job_file, job)
+            except Exception as e:
+                logger.warning(f"Failed to reset interrupted job: {e}")
+            if project:
+                mark_project_idle(project)
+            if lock_handle:
+                unlock_file(lock_handle)
+                lock_handle = None
+            return False
 
         # Strip ANSI escape codes from response
         response = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', response)
@@ -1494,16 +1526,21 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
 
 
 def cleanup_stale_jobs():
-    """Clean up jobs stuck in 'processing' status.
+    """Clean up jobs stuck in 'processing' status and orphaned lock files.
 
-    Handles three cases:
+    Handles stale jobs:
     1. Job completed (result file exists) but JSON status wasn't updated - fix the status
     2. Job is genuinely being processed right now (project is active) - skip it
     3. Job is orphaned (no active process, no result, past threshold) - mark as error
+
+    Also cleans up orphaned lock files (lock files with no corresponding .json file)
+    that accumulate after crashes or restarts.
     """
     stale_threshold = 5 * 60  # 5 minutes
+    orphan_lock_age = 60  # Remove orphaned lock files older than 60 seconds
     now = time.time()
     cleaned = 0
+    locks_cleaned = 0
 
     for job_file in QUEUE_DIR.glob("*.json"):
         if job_file.name in ("watcher.heartbeat", "relay_sessions.json"):
@@ -1554,8 +1591,23 @@ def cleanup_stale_jobs():
         except (json.JSONDecodeError, IOError, KeyError) as e:
             logger.warning(f"Could not check job file {job_file}: {e}")
 
+    # Clean up orphaned lock files (lock exists but no corresponding .json file)
+    for lock_file in QUEUE_DIR.glob("*.json.lock"):
+        try:
+            # Derive the corresponding .json filename
+            json_file = lock_file.with_name(lock_file.name[:-5])  # strip '.lock'
+            lock_age = now - lock_file.stat().st_mtime
+
+            if not json_file.exists() and lock_age > orphan_lock_age:
+                lock_file.unlink()
+                locks_cleaned += 1
+        except Exception as e:
+            logger.warning(f"Error cleaning orphaned lock {lock_file.name}: {e}")
+
     if cleaned > 0:
         logger.info(f"Cleaned up {cleaned} stale job(s)")
+    if locks_cleaned > 0:
+        logger.info(f"Cleaned up {locks_cleaned} orphaned lock file(s)")
 
 
 def cleanup_old_jobs():
@@ -1719,6 +1771,7 @@ def watch():
     logger.info(f"Max job runtime: {MAX_JOB_RUNTIME_SECONDS // 60} minutes")
     logger.info(f"Max parallel projects: {MAX_PARALLEL_PROJECTS}")
 
+    global shutdown_event
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
