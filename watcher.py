@@ -5,7 +5,9 @@ import json
 import subprocess
 import time
 import base64
+import grp
 import os
+import stat
 import pty
 import re
 import select
@@ -39,22 +41,14 @@ def _setup_file_logging(log_path: Path):
     ))
     logging.getLogger().addHandler(handler)
 
-# Multi-instance support: RELAY_USER env var determines which user's queue to watch
-RELAY_USER = os.environ.get("RELAY_USER", "axion")
 RELAY_DIR = Path(__file__).parent
 
-def _user_dir(base_name):
-    """Get user-specific directory path. Axion uses original names for compat."""
-    if RELAY_USER == "axion":
-        return RELAY_DIR / base_name
-    return RELAY_DIR / f"{base_name}-{RELAY_USER}"
-
-QUEUE_DIR = _user_dir(".queue")
-HISTORY_DIR = _user_dir(".history")
+QUEUE_DIR = RELAY_DIR / ".queue"
+HISTORY_DIR = RELAY_DIR / ".history"
 HISTORY_DIR.mkdir(exist_ok=True)
-TEMP_DIR = _user_dir(".temp")
+TEMP_DIR = RELAY_DIR / ".temp"
 TEMP_DIR.mkdir(exist_ok=True)
-SCREENSHOTS_DIR = _user_dir(".screenshots")
+SCREENSHOTS_DIR = RELAY_DIR / ".screenshots"
 SCREENSHOTS_DIR.mkdir(exist_ok=True)
 
 # Heartbeat for health monitoring
@@ -107,6 +101,45 @@ class SessionCache:
                 logger.warning(f"Failed to reload session cache: {e}")
 
 _session_cache = SessionCache(ttl_seconds=30)
+
+
+def _fix_credentials_permissions(cred_file: Path):
+    """Fix credentials file permissions so the relay (axion) can read it.
+
+    The CLI may recreate .credentials.json with 600 permissions on token refresh.
+    This tries direct chmod (works if we own the file), then sudo -n as fallback.
+    """
+    try:
+        st = cred_file.stat()
+        claude_users_gid = grp.getgrnam("claude-users").gr_gid
+        # Try direct chown/chmod (works if current process owns the file)
+        if st.st_gid != claude_users_gid:
+            os.chown(cred_file, st.st_uid, claude_users_gid)
+        if not st.st_mode & stat.S_IRGRP:
+            cred_file.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP)  # 640
+        logger.info("Fixed credentials file permissions (direct)")
+        return
+    except PermissionError:
+        pass
+    except Exception as e:
+        logger.warning(f"Unexpected error fixing credentials (direct): {e}")
+
+    # Fallback: try sudo -n (non-interactive, fails silently if not configured)
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "chmod", "640", str(cred_file)],
+            capture_output=True, timeout=5
+        )
+        if result.returncode == 0:
+            logger.info("Fixed credentials file permissions (sudo)")
+            return
+    except Exception:
+        pass
+
+    logger.error(
+        f"Cannot read {cred_file} - permission denied. "
+        f"Fix manually: chmod 640 {cred_file} && chgrp claude-users {cred_file}"
+    )
 
 
 def is_project_busy(project: str) -> bool:
@@ -1245,6 +1278,25 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
         master_fd, slave_fd = pty.openpty()
         logger.debug(f"PTY created: master={master_fd}, slave={slave_fd}")
 
+        # Build clean environment for Claude CLI subprocess
+        # Ensures it finds the correct .credentials.json for OAuth auth
+        claude_env = os.environ.copy()
+        credentials_home = "/home/a28m2t2xu8go4a0qgblz7xxze"
+        cred_file = Path(credentials_home) / ".claude" / ".credentials.json"
+        if cred_file.exists():
+            # Ensure credentials file is group-readable by claude-users
+            # (CLI may reset permissions to 600 on token refresh)
+            if not os.access(cred_file, os.R_OK):
+                _fix_credentials_permissions(cred_file)
+            claude_env["HOME"] = credentials_home
+            logger.debug(f"Set subprocess HOME={credentials_home} (credentials found)")
+        # Remove stale OAuth token from env so CLI uses .credentials.json instead
+        claude_env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+        # Remove CLAUDECODE env var to prevent "nested session" detection
+        claude_env.pop("CLAUDECODE", None)
+        # Remove invalid ANTHROPIC_API_KEY so CLI uses OAuth credentials instead
+        claude_env.pop("ANTHROPIC_API_KEY", None)
+
         try:
             process = subprocess.Popen(
                 cmd,
@@ -1252,6 +1304,7 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
                 stderr=slave_fd,
                 stdin=subprocess.DEVNULL,
                 cwd=cwd,
+                env=claude_env,
                 close_fds=True
             )
             logger.info(f"Process started: PID={process.pid}")
@@ -1373,31 +1426,43 @@ IMPORTANT: The HTML files will be served for interactive preview. Make sure they
                         if obj.get("type") == "result":
                             response = obj.get("result", "")
                             logger.info(f"Job {job_id}: got response from 'result' type ({len(response)} chars)")
-                            break
+                            if response:
+                                break
                         elif obj.get("type") == "assistant":
                             msg = obj.get("message", {})
-                            if msg.get("type") == "text":
-                                response = msg.get("text", "")
-                                logger.info(f"Job {job_id}: got response from 'assistant' type ({len(response)} chars)")
+                            # Extract text from content array
+                            content = msg.get("content", [])
+                            if isinstance(content, list):
+                                for item in content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        response = item.get("text", "")
+                                        if response:
+                                            logger.info(f"Job {job_id}: got response from 'assistant' content ({len(response)} chars)")
+                                            break
+                            if response:
+                                break
                     except json.JSONDecodeError:
                         pass
 
             # Detect API key / auth errors from raw output
+            # Only check for auth errors if the process actually failed (non-zero exit)
             exit_code = process.returncode if process else None
             if not response or response == "No response":
                 logger.warning(f"Job {job_id}: No response extracted! exit_code={exit_code}, raw output (first 500): {full_output[:500]}")
-                auth_patterns = [
-                    "invalid_api_key", "authentication_error", "Invalid API key",
-                    "unauthorized", "401", "api_key", "expired",
-                    "Could not resolve API key", "ANTHROPIC_API_KEY",
-                    "overloaded_error", "rate_limit",
-                ]
-                raw = full_output.lower()
-                for pattern in auth_patterns:
-                    if pattern.lower() in raw:
-                        response = f"Error: Claude API key issue detected ({pattern}). Please check/reset your API key and try again.\n\nRaw output: {full_output[:500]}"
-                        logger.error(f"API key error detected for job {job_id}: {pattern}")
-                        break
+                # Only flag auth errors when CLI explicitly reports them
+                # (avoid false positives from "401" or "api_key" appearing in normal JSON output)
+                if exit_code and exit_code != 0:
+                    auth_patterns = [
+                        "invalid_api_key", "authentication_error", "Invalid API key",
+                        "unauthorized", "Could not resolve API key",
+                        "overloaded_error", '"error":"authentication_failed"',
+                    ]
+                    raw = full_output.lower()
+                    for pattern in auth_patterns:
+                        if pattern.lower() in raw:
+                            response = f"Error: Claude API key issue detected ({pattern}). Please check/reset your API key and try again.\n\nRaw output: {full_output[:500]}"
+                            logger.error(f"API key error detected for job {job_id}: {pattern}")
+                            break
 
             # If process exited with error and we still have no useful response, show what we got
             if (not response or response == "No response") and exit_code and exit_code != 0:
@@ -1823,7 +1888,7 @@ def watch():
 
                 # Find and submit new jobs
                 for job_file in QUEUE_DIR.glob("*.json"):
-                    if job_file.name in ("watcher.heartbeat", "relay_sessions.json"):
+                    if job_file.name in ("watcher.heartbeat", "relay_sessions.json", "AXION_OUTBOX.json"):
                         continue
 
                     # Skip if already being processed
@@ -1842,7 +1907,7 @@ def watch():
                         if is_project_busy(project):
                             continue
 
-                    except (json.JSONDecodeError, IOError):
+                    except (json.JSONDecodeError, IOError, AttributeError):
                         continue
 
                     # Submit job to thread pool

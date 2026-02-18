@@ -103,15 +103,9 @@ class ChatRelayHandler(SimpleHTTPRequestHandler):
             self._serve_html_cached()
         elif self.path == "/favicon.svg" or self.path == "/favicon.ico":
             self._serve_favicon()
-        elif self.path == "/api/users":
-            api = APIHandler(self._json, self._send_error_json)
-            api.handle_users()
         elif self.path.startswith("/api/projects"):
-            parsed = urlparse(self.path)
-            params = parse_qs(parsed.query)
-            user_filter = params.get("user", [None])[0]
             api = APIHandler(self._json, self._send_error_json)
-            api.handle_projects(user=user_filter)
+            api.handle_projects()
         elif self.path == "/api/health":
             api = APIHandler(self._json, self._send_error_json)
             api.handle_health()
@@ -204,6 +198,7 @@ class ChatRelayHandler(SimpleHTTPRequestHandler):
             "/api/git/commit": lambda: api.handle_git_commit(data),
             "/api/git/pull": lambda: api.handle_git_pull(data),
             "/api/git/log": lambda: api.handle_git_log(data),
+            "/api/git/commit-files": lambda: api.handle_git_commit_files(data),
             "/api/git/remote": lambda: api.handle_git_remote_info(data),
             "/api/git/branches": lambda: api.handle_git_branches(data),
             "/api/git/checkout": lambda: api.handle_git_checkout(data),

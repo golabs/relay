@@ -4406,6 +4406,114 @@ select optgroup {
     line-height: 1.4;
 }
 
+/* Git commit file change viewer */
+.git-commit-entry {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.git-commit-entry:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.git-commit-entry.expanded {
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+}
+
+.commit-toggle-icon {
+    font-size: 9px;
+    color: var(--text-secondary);
+    transition: transform 0.2s;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.git-commit-entry.expanded .commit-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.commit-files-container {
+    margin: 6px 0 4px 20px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+}
+
+.commit-files-summary {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.commit-file-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.commit-file-status {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    min-width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.commit-file-status.added {
+    background: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+}
+
+.commit-file-status.modified {
+    background: rgba(88, 166, 255, 0.15);
+    color: #58a6ff;
+}
+
+.commit-file-status.deleted {
+    background: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+}
+
+.commit-file-status.renamed {
+    background: rgba(188, 140, 255, 0.15);
+    color: #bc8cff;
+}
+
+.commit-file-status.copied {
+    background: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+}
+
+.commit-file-path {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.commit-file-path .dirpath {
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.commit-file-path .basename {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.commit-files-loading {
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 0;
+}
+
 .git-branch-info {
     display: inline-flex;
     align-items: center;

@@ -32,8 +32,8 @@
     var voiceSettings = JSON.parse(localStorage.getItem('chatRelayVoices') || '{}');
     var voiceAliases = JSON.parse(localStorage.getItem('chatRelayVoiceAliases') || '{}');
     var savedProject = localStorage.getItem('chatRelayProject') || '';
-    var currentUser = localStorage.getItem('chatRelayUser') || 'axion';
-    var currentUserData = null;  // Loaded from /api/users, includes inputPanelName
+    var currentUser = 'axion';
+    window.currentUser = currentUser;
     var chatHistory = [];
     var selectedHistoryIndex = -1;
     var sidebarCollapsed = localStorage.getItem('chatRelaySidebarCollapsed') === 'true';
@@ -1150,117 +1150,10 @@
         if (mobile) mobile.value = value;
     }
 
-    // ========== USER MANAGEMENT ==========
-
-    async function loadUsers() {
-        try {
-            var res = await fetch('/api/users');
-            var data = await res.json();
-
-            // Store current user data
-            currentUserData = data.users.find(function(u) { return u.id === currentUser; });
-            if (!currentUserData) {
-                currentUserData = data.users[0]; // fallback to first user
-            }
-
-            // Update panel name dynamically
-            updateInputPanelName();
-
-            var selects = [
-                document.getElementById('userSelect'),
-                document.getElementById('userSelectMobile')
-            ].filter(Boolean);
-
-            selects.forEach(function(select) {
-                while (select.firstChild) select.removeChild(select.firstChild);
-                data.users.forEach(function(u) {
-                    var opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.textContent = u.name + (u.admin ? ' ★' : '');
-                    if (u.id === currentUser) opt.selected = true;
-                    select.appendChild(opt);
-                });
-            });
-        } catch (e) {
-            console.log('Failed to load users:', e);
-        }
-    }
-
-    function updateInputPanelName() {
-        if (!currentUserData) return;
-
-        var panelName = currentUserData.inputPanelName || 'BRETT';
-
-        // Update the panel header
-        var brettPaneHeader = document.querySelector('#brettPane .pane-header span');
-        if (brettPaneHeader) {
-            brettPaneHeader.textContent = panelName;
-        }
-
-        // Update display settings labels
-        var brettSizeHeader = document.querySelector('label[for="brettFontSize"]');
-        if (brettSizeHeader) {
-            brettSizeHeader.innerHTML = panelName + ' Font Size: <span id="brettSizeLabel">14px</span>';
-        }
-
-        // Update voice settings labels (multiple TTS engines)
-        var voiceLabels = [
-            { selector: 'label[for="brettEdgeVoice"]', text: panelName + ' Edge Voice:' },
-            { selector: 'label[for="brettPiperVoice"]', text: panelName + ' Piper Voice:' },
-            { selector: 'label[for="brettElevenVoice"]', text: panelName + ' ElevenLabs Voice:' },
-            { selector: 'label[for="brettVoice"]', text: panelName + ' Voice:' }
-        ];
-
-        voiceLabels.forEach(function(item) {
-            var label = document.querySelector(item.selector);
-            if (label) label.textContent = item.text;
-        });
-
-        // Update test buttons
-        var testButtons = document.querySelectorAll('button[onclick*="brett"]');
-        testButtons.forEach(function(btn) {
-            var text = btn.textContent;
-            if (text.includes('BRETT')) {
-                btn.textContent = text.replace('BRETT', panelName);
-            }
-        });
-
-        // Update help modal text
-        var helpTexts = [
-            { id: 'helpClearInput', text: 'Clear ' + panelName + ' input' },
-            { id: 'helpReadInput', text: 'Read ' + panelName + ' aloud' },
-            { id: 'helpAxionRead', text: 'Read Axion aloud (pauses ' + panelName + ' voice)' }
-        ];
-
-        helpTexts.forEach(function(item) {
-            var el = document.getElementById(item.id);
-            if (el) el.textContent = item.text;
-        });
-    }
-
-    async function switchUser(userId) {
-        currentUser = userId;
-        localStorage.setItem('chatRelayUser', userId);
-
-        // Sync both user selects
-        ['userSelect', 'userSelectMobile'].forEach(function(id) {
-            var sel = document.getElementById(id);
-            if (sel) sel.value = userId;
-        });
-
-        // Reload user data to get new panel name
-        await loadUsers();
-
-        // Reload projects for this user
-        loadProjects();
-        showToast('Switched to ' + userId, 'success');
-    }
-    window.switchUser = switchUser;
 
     async function loadProjects() {
         try {
             var url = '/api/projects';
-            if (currentUser) url += '?user=' + encodeURIComponent(currentUser);
             var res = await fetch(url);
             var data = await res.json();
             var selects = [
@@ -8177,17 +8070,23 @@
                 data.commits.forEach(function(commit) {
                     var commitDiv = document.createElement('div');
                     commitDiv.className = 'git-commit-entry';
+                    commitDiv.dataset.hash = commit.hash;
 
                     var date = new Date(commit.date);
                     var dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                     commitDiv.innerHTML =
                         '<div class="git-commit-header">' +
+                            '<span class="commit-toggle-icon">&#9654;</span>' +
                             '<span class="git-commit-hash" title="' + escapeHtml(commit.hash) + '">' + escapeHtml(commit.hash_short) + '</span>' +
                             '<span class="git-commit-author">' + escapeHtml(commit.author) + '</span>' +
                             '<span class="git-commit-date">' + dateStr + '</span>' +
                         '</div>' +
                         '<div class="git-commit-message">' + escapeHtml(commit.message) + '</div>';
+
+                    commitDiv.addEventListener('click', function() {
+                        toggleCommitFiles(commitDiv);
+                    });
 
                     contentDiv.appendChild(commitDiv);
                 });
@@ -8221,6 +8120,110 @@
             errorDiv.textContent = 'Network error: ' + err.message;
             showToast('Network error: ' + err.message, 'error');
         }
+    }
+
+    // ========== GIT COMMIT FILE CHANGES ==========
+
+    async function toggleCommitFiles(commitDiv) {
+        var existing = commitDiv.querySelector('.commit-files-container');
+        if (existing) {
+            existing.remove();
+            commitDiv.classList.remove('expanded');
+            return;
+        }
+
+        // Check if we already cached the data
+        if (commitDiv._filesCache) {
+            renderCommitFiles(commitDiv, commitDiv._filesCache);
+            return;
+        }
+
+        var hash = commitDiv.dataset.hash;
+        var project = document.getElementById('projectSelect').value;
+        if (!project || !hash) return;
+
+        commitDiv.classList.add('expanded');
+
+        // Show loading
+        var loadingDiv = document.createElement('div');
+        loadingDiv.className = 'commit-files-container';
+        loadingDiv.innerHTML = '<div class="commit-files-loading">Loading changed files...</div>';
+        commitDiv.appendChild(loadingDiv);
+
+        try {
+            var resp = await fetch('/api/git/commit-files', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ project: project, hash: hash })
+            });
+            var data = await resp.json();
+
+            // Remove loading
+            var container = commitDiv.querySelector('.commit-files-container');
+            if (container) container.remove();
+
+            if (data.success) {
+                commitDiv._filesCache = data.files;
+                renderCommitFiles(commitDiv, data.files);
+            } else {
+                commitDiv.classList.remove('expanded');
+                showToast('Failed to load commit files: ' + data.error, 'error');
+            }
+        } catch (err) {
+            var container = commitDiv.querySelector('.commit-files-container');
+            if (container) container.remove();
+            commitDiv.classList.remove('expanded');
+            showToast('Network error loading commit files', 'error');
+        }
+    }
+
+    function renderCommitFiles(commitDiv, files) {
+        commitDiv.classList.add('expanded');
+        var container = document.createElement('div');
+        container.className = 'commit-files-container';
+
+        if (files.length === 0) {
+            container.innerHTML = '<div class="commit-files-loading">No file changes found</div>';
+        } else {
+            var summary = document.createElement('div');
+            summary.className = 'commit-files-summary';
+            var added = files.filter(function(f) { return f.status === 'added'; }).length;
+            var modified = files.filter(function(f) { return f.status === 'modified'; }).length;
+            var deleted = files.filter(function(f) { return f.status === 'deleted'; }).length;
+            var parts = [];
+            if (added) parts.push(added + ' added');
+            if (modified) parts.push(modified + ' modified');
+            if (deleted) parts.push(deleted + ' deleted');
+            var other = files.length - added - modified - deleted;
+            if (other > 0) parts.push(other + ' other');
+            summary.textContent = files.length + ' file' + (files.length !== 1 ? 's' : '') + ' changed' + (parts.length ? ' (' + parts.join(', ') + ')' : '');
+            container.appendChild(summary);
+
+            files.forEach(function(f) {
+                var entry = document.createElement('div');
+                entry.className = 'commit-file-entry';
+
+                var badge = document.createElement('span');
+                badge.className = 'commit-file-status ' + f.status;
+                badge.textContent = f.status.charAt(0).toUpperCase();
+
+                var path = document.createElement('span');
+                path.className = 'commit-file-path';
+                var filePath = f.file;
+                var lastSlash = filePath.lastIndexOf('/');
+                if (lastSlash >= 0 && !filePath.includes('\u2192')) {
+                    path.innerHTML = '<span class="dirpath">' + escapeHtml(filePath.substring(0, lastSlash + 1)) + '</span><span class="basename">' + escapeHtml(filePath.substring(lastSlash + 1)) + '</span>';
+                } else {
+                    path.innerHTML = '<span class="basename">' + escapeHtml(filePath) + '</span>';
+                }
+
+                entry.appendChild(badge);
+                entry.appendChild(path);
+                container.appendChild(entry);
+            });
+        }
+
+        commitDiv.appendChild(container);
     }
 
     // ========== GIT BRANCH MANAGEMENT ==========
@@ -12240,7 +12243,6 @@
     // ========== INITIALIZATION ==========
     window.speechSynthesis.onvoiceschanged = populateVoices;
 
-    loadUsers();
     loadProjects();
     loadModelPreference();  // Load saved model selection
     initSidebar();
@@ -12818,7 +12820,6 @@ async function createNewProject() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: name,
-                user: currentUser,
                 init_git: initGit ? initGit.checked : true,
                 copy_template: copyTemplate ? copyTemplate.checked : true
             })
@@ -12838,7 +12839,7 @@ async function createNewProject() {
                     await loadProjects();
 
                     // Find the new project path and select it
-                    var newProjectPath = currentUser + '/' + name;
+                    var newProjectPath = name;
                     syncProjectSelects(newProjectPath);
 
                     // Save to localStorage and trigger change

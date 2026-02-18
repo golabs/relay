@@ -1,1 +1,0 @@
-so I need to add a dark mode toggle to the settings page and make sure it persists when the user comes back later also need to make sure all the components actually use the theme and update when its changed and we should probably add some tests to make sure it doesnt break

@@ -17,8 +17,7 @@ from urllib.parse import unquote
 
 from .config import (
     QUEUE_DIR, HISTORY_DIR, SCREENSHOTS_DIR, PROJECTS_DIR, AXION_OUTBOX,
-    API_CACHE_HEADERS, RELAY_DIR,
-    USERS, ADMIN_USERS, DEFAULT_USER, SHARED_PROJECTS, USER_INPUT_PANEL_NAMES, get_user_projects_dir
+    API_CACHE_HEADERS, RELAY_DIR, INPUT_PANEL_NAME
 )
 from .utils import atomic_write_json, safe_json_load
 
@@ -240,74 +239,18 @@ Stay helpful and complete the task like a helpful pirate. Don't overdo it - keep
 
     # ========== GET ENDPOINTS ==========
 
-    def handle_users(self):
-        """GET /api/users - List available users."""
-        users = []
-        for username, display_name in USERS.items():
-            users.append({
-                "id": username,
-                "name": display_name,
-                "admin": username in ADMIN_USERS,
-                "inputPanelName": USER_INPUT_PANEL_NAMES.get(username, "BRETT")
-            })
-        self.send_json({"users": users, "default": DEFAULT_USER})
-
-    def handle_projects(self, user=None):
-        """GET /api/projects - List available projects, optionally filtered by user.
-        Query param: ?user=username (parsed by server.py and passed in)
-        """
+    def handle_projects(self):
+        """GET /api/projects - List available projects."""
         projects = []
-        is_admin = user in ADMIN_USERS if user else True
-
-        if is_admin or not user:
-            # Admin sees everything: root projects + all user subdirectories
-            if PROJECTS_DIR.exists():
-                for p in sorted(PROJECTS_DIR.iterdir()):
-                    if p.is_dir() and not p.name.startswith('.'):
-                        # Skip user directories themselves - we'll scan inside them
-                        if p.name in USERS:
-                            # Scan this user's projects
-                            for up in sorted(p.iterdir()):
-                                if up.is_dir() and not up.name.startswith('.'):
-                                    projects.append({
-                                        "name": up.name,
-                                        "path": f"{p.name}/{up.name}",
-                                        "owner": p.name,
-                                        "display": f"{up.name} ({USERS.get(p.name, p.name)})"
-                                    })
-                        else:
-                            # Root-level project (legacy/shared)
-                            projects.append({
-                                "name": p.name,
-                                "path": p.name,
-                                "owner": "shared",
-                                "display": p.name
-                            })
-        else:
-            # Regular user sees: their own projects + shared projects
-            user_dir = get_user_projects_dir(user)
-            if user_dir.exists():
-                for p in sorted(user_dir.iterdir()):
-                    if p.is_dir() and not p.name.startswith('.'):
-                        projects.append({
-                            "name": p.name,
-                            "path": f"{user}/{p.name}",
-                            "owner": user,
-                            "display": p.name
-                        })
-
-            # Add shared projects
-            for shared in SHARED_PROJECTS:
-                shared_path = PROJECTS_DIR / shared
-                if shared_path.exists() and shared_path.is_dir():
+        if PROJECTS_DIR.exists():
+            for p in sorted(PROJECTS_DIR.iterdir()):
+                if p.is_dir() and not p.name.startswith('.'):
                     projects.append({
-                        "name": shared,
-                        "path": shared,
-                        "owner": "shared",
-                        "display": f"{shared} (shared)"
+                        "name": p.name,
+                        "path": p.name,
+                        "display": p.name
                     })
-
-        self.send_json({"projects": projects, "user": user or DEFAULT_USER})
+        self.send_json({"projects": projects})
 
     def handle_health(self):
         """GET /api/health - Health check endpoint."""
@@ -895,6 +838,7 @@ So that [benefit/value]
 8. Return ONLY the formatted markdown above (starting with the # title heading)
 9. Do NOT add preamble, explanations, or commentary
 10. Follow the exact section structure shown above
+11. Do NOT use any tools - respond with plain text only. Do NOT create files, read files, or use Write/Edit/Bash tools.
 
 **Raw task description to format:**
 {text}"""
@@ -1863,6 +1807,78 @@ IMPORTANT RULES:
 
         except subprocess.TimeoutExpired:
             self.send_json({"success": False, "error": "Git log request timed out"})
+        except Exception as e:
+            self.send_json({"success": False, "error": str(e)})
+
+    def handle_git_commit_files(self, data: dict):
+        """POST /api/git/commit-files - Get files changed in a specific commit."""
+        project = data.get("project", "")
+        commit_hash = data.get("hash", "")
+
+        if not project:
+            self.send_json({"success": False, "error": "Project name required"})
+            return
+
+        if not commit_hash or not commit_hash.isalnum() or len(commit_hash) > 40:
+            self.send_json({"success": False, "error": "Valid commit hash required"})
+            return
+
+        project_dir = self._find_project_dir(project)
+        if not project_dir:
+            self.send_json({"success": False, "error": f"Project '{project}' not found"})
+            return
+
+        try:
+            result = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "-r", "--name-status", commit_hash],
+                cwd=str(project_dir),
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+
+            output = result.stdout.strip()
+
+            # If empty, might be a root commit - try with --root flag
+            if not output and result.returncode == 0:
+                result = subprocess.run(
+                    ["git", "diff-tree", "--root", "--no-commit-id", "-r", "--name-status", commit_hash],
+                    cwd=str(project_dir),
+                    capture_output=True,
+                    text=True,
+                    timeout=15
+                )
+                output = result.stdout.strip()
+
+            if result.returncode != 0:
+                self.send_json({"success": False, "error": f"Failed to get commit files: {result.stderr}"})
+                return
+
+            status_map = {"A": "added", "M": "modified", "D": "deleted", "R": "renamed", "C": "copied"}
+            files = []
+            for line in output.split('\n'):
+                if not line.strip():
+                    continue
+                parts = line.split('\t', 1)
+                if len(parts) >= 2:
+                    raw_status = parts[0].strip()
+                    status_key = raw_status[0] if raw_status else "M"
+                    status_label = status_map.get(status_key, "modified")
+                    file_path = parts[1].strip()
+                    if '\t' in file_path:
+                        old_path, new_path = file_path.split('\t', 1)
+                        file_path = old_path + " \u2192 " + new_path
+                    files.append({"status": status_label, "file": file_path})
+
+            self.send_json({
+                "success": True,
+                "files": files,
+                "hash": commit_hash,
+                "count": len(files)
+            })
+
+        except subprocess.TimeoutExpired:
+            self.send_json({"success": False, "error": "Request timed out"})
         except Exception as e:
             self.send_json({"success": False, "error": str(e)})
 
@@ -3194,13 +3210,7 @@ MERGED RESULT:"""
         Uses the watcher PID file to kill only the correct watcher instance
         (not other users' watchers), then lets systemd restart it.
         """
-        from .config import RELAY_USER
-
-        # Determine the correct systemd service name for this user
-        if RELAY_USER == "axion":
-            service_name = "relay-watcher.service"
-        else:
-            service_name = f"relay-watcher-{RELAY_USER}.service"
+        service_name = "relay-watcher.service"
 
         # Kill only THIS user's watcher via PID file (not all watchers)
         pid_file = QUEUE_DIR / "watcher.pid"
@@ -4883,7 +4893,6 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
         import re
 
         name = data.get("name", "").strip()
-        user = data.get("user", DEFAULT_USER).strip()
         init_git = data.get("init_git", True)
         copy_template = data.get("copy_template", True)
 
@@ -4900,13 +4909,7 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
             }, 400)
             return
 
-        # Create in user's directory if user is specified and valid
-        if user and user in USERS:
-            user_dir = get_user_projects_dir(user)
-            user_dir.mkdir(parents=True, exist_ok=True)
-            project_path = user_dir / name
-        else:
-            project_path = PROJECTS_DIR / name
+        project_path = PROJECTS_DIR / name
         template_path = PROJECTS_DIR / ".templates" / "claude-template"
 
         # Check if project already exists
