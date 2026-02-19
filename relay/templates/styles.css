@@ -3206,7 +3206,27 @@ select optgroup {
 .file-tree-item:hover { background: rgba(255, 255, 255, 0.06); }
 .file-tree-item.selected { background: rgba(0, 240, 255, 0.1); color: var(--cyan); }
 .file-tree-item .icon { width: 16px; text-align: center; flex-shrink: 0; }
-.file-tree-item .name { overflow: hidden; text-overflow: ellipsis; }
+.file-tree-item .name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.file-tree-item .view-file-btn {
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    color: var(--cyan);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.file-tree-item:hover .view-file-btn {
+    opacity: 1;
+}
+.file-tree-item .view-file-btn:hover {
+    background: rgba(0, 240, 255, 0.2);
+    border-color: var(--cyan);
+}
 .file-tree-children {
     margin-left: 16px;
     display: none;

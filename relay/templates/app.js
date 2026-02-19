@@ -10052,8 +10052,14 @@
 
             html += '<div class="file-tree-item' + (item.is_dir ? ' folder' : ' file') + '" onclick="' + clickHandler + '" data-path="' + escapeAttr(item.path) + '">' +
                 '<span class="icon">' + icon + '</span>' +
-                '<span class="name">' + escapeHtml(item.name) + '</span>' +
-                '</div>';
+                '<span class="name">' + escapeHtml(item.name) + '</span>';
+
+            // Add "View in Browser" button for files only
+            if (!item.is_dir) {
+                html += '<button class="view-file-btn" onclick="event.stopPropagation(); viewFileInBrowser(\'' + escapeAttr(item.path) + '\');" title="View in browser">👁️</button>';
+            }
+
+            html += '</div>';
 
             if (item.is_dir) {
                 html += '<div class="file-tree-children" id="tree-' + escapeAttr(item.path).replace(/\//g, '-') + '"></div>';
@@ -10173,6 +10179,14 @@
         }
     }
     window.openFileInEditor = openFileInEditor;
+
+    // View file in browser (full-screen markdown/code viewer)
+    function viewFileInBrowser(filePath) {
+        var project = document.getElementById('projectSelect').value;
+        var viewerUrl = 'http://127.0.0.1:8800/viewer.html?file=' + encodeURIComponent(filePath) + '&project=' + encodeURIComponent(project);
+        window.open(viewerUrl, '_blank', 'width=1200,height=800');
+    }
+    window.viewFileInBrowser = viewFileInBrowser;
 
     // Reload the currently open file (after external modification)
     async function reloadCurrentFile() {
