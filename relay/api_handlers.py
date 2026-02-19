@@ -1750,6 +1750,17 @@ IMPORTANT RULES:
             )
 
             if log_result.returncode != 0:
+                # No commits yet is a valid state (empty repo), not an error
+                if "does not have any commits yet" in log_result.stderr:
+                    self.send_json({
+                        "success": True,
+                        "commits": [],
+                        "pagination": {"total": 0, "limit": limit, "skip": 0, "has_more": False},
+                        "branch": "master",
+                        "empty_repo": True,
+                        "message": "No commits yet"
+                    })
+                    return
                 self.send_json({
                     "success": False,
                     "error": f"Failed to get git log: {log_result.stderr}"
