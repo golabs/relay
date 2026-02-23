@@ -3947,19 +3947,40 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
 
             # Download video with yt-dlp
             logger.info(f"Downloading YouTube video: {url}")
-            download_cmd = [
+
+            # Check for YouTube cookies file (required for bot detection bypass)
+            cookies_file = RELAY_DIR / "www.youtube.com_cookies.txt"
+            if not cookies_file.exists():
+                # Fallback: check alternate names and locations
+                for alt_path in [
+                    RELAY_DIR / "youtube_cookies.txt",
+                    Path.home() / "www.youtube.com_cookies.txt",
+                    Path.home() / "youtube_cookies.txt",
+                ]:
+                    if alt_path.exists():
+                        cookies_file = alt_path
+                        break
+
+            base_cmd = [
                 ytdlp_path,
                 "-f", video_format,
                 "--merge-output-format", "mp4",
                 "-o", output_template,
                 "--no-playlist",           # Don't download playlists
                 "--no-warnings",
+                "--js-runtimes", "node",               # Required for YouTube JS challenge solving
+                "--remote-components", "ejs:github",   # Required for YouTube n-challenge solver
                 "--print", "after_move:filepath",  # Print final file path
                 "--print", "title",                 # Print video title
                 "--print", "duration",              # Print duration
-                url
             ]
 
+            # Add cookies if available (required by YouTube to bypass bot detection)
+            if cookies_file.exists():
+                base_cmd.extend(["--cookies", str(cookies_file)])
+                logger.info(f"Using YouTube cookies from: {cookies_file}")
+
+            download_cmd = base_cmd + [url]
             result = subprocess.run(
                 download_cmd,
                 capture_output=True,
@@ -3970,6 +3991,20 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
             if result.returncode != 0:
                 error_msg = result.stderr or "Download failed"
                 logger.error(f"yt-dlp error: {error_msg}")
+
+                # Provide actionable guidance for bot detection errors
+                if "Sign in to confirm" in error_msg or "LOGIN_REQUIRED" in error_msg:
+                    self.send_json({
+                        "error": "YouTube requires browser cookies to verify you're not a bot. "
+                                 "Please export your YouTube cookies from your browser to a cookies.txt file "
+                                 "and place it at: /opt/clawd/projects/relay/youtube_cookies.txt  \n\n"
+                                 "Steps: 1) Install a 'cookies.txt' browser extension (e.g. 'Get cookies.txt LOCALLY')  "
+                                 "2) Go to youtube.com in your browser (logged in)  "
+                                 "3) Export cookies to a file  "
+                                 "4) Upload/copy the file to the server as youtube_cookies.txt"
+                    }, 500)
+                    return
+
                 self.send_json({"error": f"YouTube download failed: {error_msg}"}, 500)
                 return
 

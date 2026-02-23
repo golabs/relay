@@ -19,6 +19,7 @@ test-results/
 .env.*
 .context/
 .piper-voices/
+*_cookies.txt
 
 # Screenshots
 .screenshots/
