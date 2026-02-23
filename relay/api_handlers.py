@@ -3994,14 +3994,14 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
 
                 # Provide actionable guidance for bot detection errors
                 if "Sign in to confirm" in error_msg or "LOGIN_REQUIRED" in error_msg:
+                    cookies_status = f" (cookies file {'found' if cookies_file.exists() else 'NOT found'}: {cookies_file})"
                     self.send_json({
-                        "error": "YouTube requires browser cookies to verify you're not a bot. "
-                                 "Please export your YouTube cookies from your browser to a cookies.txt file "
-                                 "and place it at: /opt/clawd/projects/relay/youtube_cookies.txt  \n\n"
-                                 "Steps: 1) Install a 'cookies.txt' browser extension (e.g. 'Get cookies.txt LOCALLY')  "
-                                 "2) Go to youtube.com in your browser (logged in)  "
-                                 "3) Export cookies to a file  "
-                                 "4) Upload/copy the file to the server as youtube_cookies.txt"
+                        "error": "YouTube requires fresh browser cookies." + cookies_status + "  \n\n"
+                                 "Your cookies may have expired. Please re-export:  \n"
+                                 "1) Install a 'cookies.txt' browser extension (e.g. 'Get cookies.txt LOCALLY')  \n"
+                                 "2) Go to youtube.com in your browser (logged in)  \n"
+                                 "3) Export cookies to a file  \n"
+                                 "4) Upload/copy the file to the server as: www.youtube.com_cookies.txt"
                     }, 500)
                     return
 
