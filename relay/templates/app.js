@@ -3899,6 +3899,8 @@
     window.closeYouTubeModal = closeYouTubeModal;
 
     // Voice input for YouTube context textarea
+    var ytVoiceWasRecording = false; // Track if main voice was active before YT voice
+
     function toggleYtVoiceInput() {
         if (ytVoiceActive) {
             stopYtVoice();
@@ -3914,14 +3916,24 @@
             return;
         }
 
+        // Pause main voice panel if it's recording
+        if (isRecording && recognition) {
+            ytVoiceWasRecording = true;
+            try { recognition.stop(); } catch(e) {}
+            isRecording = false;
+            voiceBtn.classList.remove('recording');
+            voiceBtn.textContent = '🎤';
+        }
+
         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         ytVoiceRecognition = new SpeechRecognition();
-        ytVoiceRecognition.continuous = true;
+        ytVoiceRecognition.continuous = false; // Single utterance per session — avoids duplication
         ytVoiceRecognition.interimResults = true;
         ytVoiceRecognition.lang = 'en-US';
 
-        var finalTranscript = '';
         var contextArea = document.getElementById('ytContext');
+        // Track where committed (finalized) text ends so we can replace interim cleanly
+        var committedLen = contextArea.value.length;
 
         ytVoiceRecognition.onstart = function() {
             ytVoiceActive = true;
@@ -3933,34 +3945,55 @@
         };
 
         ytVoiceRecognition.onresult = function(event) {
-            var interim = '';
+            var finalText = '';
+            var interimText = '';
+
             for (var i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript + ' ';
+                    finalText += event.results[i][0].transcript;
                 } else {
-                    interim += event.results[i][0].transcript;
+                    interimText += event.results[i][0].transcript;
                 }
             }
-            // Show final + interim in textarea
-            var existing = contextArea.value;
-            // Remove previous interim text (after last final)
-            var baseText = existing.substring(0, existing.length - (contextArea.dataset.interimLen || 0));
-            contextArea.value = baseText + finalTranscript + interim;
-            contextArea.dataset.interimLen = interim.length;
+
+            // Always rebuild from committed base — never accumulate on existing textarea
+            var base = contextArea.value.substring(0, committedLen);
+            var spacer = (committedLen > 0 && !base.endsWith(' ') && !base.endsWith('\n')) ? ' ' : '';
+
+            if (finalText) {
+                // Final result: commit it permanently
+                contextArea.value = base + spacer + finalText;
+                committedLen = contextArea.value.length;
+            } else if (interimText) {
+                // Interim: show as preview but don't commit
+                contextArea.value = base + spacer + interimText;
+            }
+
             contextArea.scrollTop = contextArea.scrollHeight;
         };
 
         ytVoiceRecognition.onerror = function(event) {
-            if (event.error !== 'no-speech') {
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
                 showToast('Voice error: ' + event.error, 'error');
             }
-            stopYtVoice();
         };
 
         ytVoiceRecognition.onend = function() {
-            // If still active, restart (continuous mode can stop unexpectedly)
+            // Trim any leftover interim text back to committed position
+            var contextArea = document.getElementById('ytContext');
+            if (contextArea && contextArea.value.length > committedLen) {
+                // Keep whatever is there — the last interim was likely useful
+                committedLen = contextArea.value.length;
+            }
+
+            // Auto-restart for continuous dictation
+            // Using continuous=false + restart avoids the browser duplication bug
             if (ytVoiceActive) {
-                try { ytVoiceRecognition.start(); } catch(e) { stopYtVoice(); }
+                try {
+                    ytVoiceRecognition.start();
+                } catch(e) {
+                    stopYtVoice();
+                }
             }
         };
 
@@ -3980,9 +4013,21 @@
             btn.textContent = '🎤';
             btn.title = 'Voice input';
         }
-        // Clear interim tracking
-        var contextArea = document.getElementById('ytContext');
-        if (contextArea) delete contextArea.dataset.interimLen;
+
+        // Restore main voice panel if it was recording before
+        if (ytVoiceWasRecording) {
+            ytVoiceWasRecording = false;
+            setTimeout(function() {
+                if (recognition && !isRecording) {
+                    try {
+                        recognition.start();
+                        isRecording = true;
+                        voiceBtn.classList.add('recording');
+                        voiceBtn.textContent = voiceCommandsOnly ? '🎯' : '⏹';
+                    } catch(e) {}
+                }
+            }, 300);
+        }
     }
 
     function downloadYouTube() {
