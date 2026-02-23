@@ -3973,18 +3973,31 @@ pre {{ background: #f5f5f5; padding: 16px; border-radius: 6px; overflow-x: auto;
                 self.send_json({"error": f"YouTube download failed: {error_msg}"}, 500)
                 return
 
-            # Parse output - yt-dlp prints filepath, title, duration on separate lines
+            # Parse output - yt-dlp --print order: title, duration print before download,
+            # after_move:filepath prints last (after download completes)
             output_lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
             if len(output_lines) < 3:
                 self.send_json({"error": "Failed to parse yt-dlp output"}, 500)
                 return
 
-            video_path = output_lines[0]
-            video_title = output_lines[1]
-            try:
-                video_duration = float(output_lines[2])
-            except (ValueError, IndexError):
-                video_duration = 0
+            # Find the filepath (line containing a path with extension)
+            video_path = None
+            video_title = ''
+            video_duration = 0
+            for line in output_lines:
+                if line.startswith('/') and ('.' in line.split('/')[-1]):
+                    video_path = line
+                else:
+                    # Try parsing as duration (numeric)
+                    try:
+                        video_duration = float(line)
+                    except ValueError:
+                        # Must be the title
+                        if not video_title:
+                            video_title = line
+
+            if not video_path:
+                video_path = output_lines[-1]  # Fallback: last line is usually the path
 
             if not Path(video_path).exists():
                 self.send_json({"error": "Downloaded video file not found"}, 500)
