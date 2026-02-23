@@ -513,6 +513,13 @@
                         </div>
                     </div>
 
+                    <!-- Context / Instructions for Claude -->
+                    <label style="color:var(--text-secondary);font-size:13px;display:block;margin-bottom:4px;">Context &amp; Instructions for Claude:</label>
+                    <div style="position:relative;margin-bottom:16px;">
+                        <textarea id="ytContext" placeholder="Tell Claude what to focus on, what you're looking for, or any background context about this video... e.g. 'Analyze the UI design patterns shown' or 'Summarize the key arguments made'" style="width:100%;min-height:80px;padding:12px;padding-right:44px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;resize:vertical;font-family:inherit;line-height:1.5;"></textarea>
+                        <button id="ytVoiceBtn" class="icon-btn" onclick="toggleYtVoiceInput()" title="Voice input" style="position:absolute;right:8px;top:8px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.3);">🎤</button>
+                    </div>
+
                     <div id="ytProgress" style="display:none;background:rgba(0,40,60,0.5);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:16px;">
                         <div style="color:var(--accent);margin-bottom:8px;">⏳ <span id="ytProgressText">Downloading video...</span></div>
                         <div style="background:var(--bg);height:6px;border-radius:3px;overflow:hidden;">

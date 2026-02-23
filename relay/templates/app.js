@@ -3877,19 +3877,113 @@
     window.removeVideo = removeVideo;
 
     // YouTube video download and analysis
+    var ytVoiceRecognition = null;
+    var ytVoiceActive = false;
+
     function openYouTubeModal() {
         document.getElementById('youtubeModal').style.display = 'flex';
         document.getElementById('youtubeUrl').value = '';
+        document.getElementById('ytContext').value = '';
         document.getElementById('ytProgress').style.display = 'none';
         document.getElementById('ytDownloadBtn').disabled = false;
         document.getElementById('youtubeUrl').focus();
+        // Stop voice if it was left on
+        if (ytVoiceActive) stopYtVoice();
     }
     window.openYouTubeModal = openYouTubeModal;
 
     function closeYouTubeModal() {
         document.getElementById('youtubeModal').style.display = 'none';
+        if (ytVoiceActive) stopYtVoice();
     }
     window.closeYouTubeModal = closeYouTubeModal;
+
+    // Voice input for YouTube context textarea
+    function toggleYtVoiceInput() {
+        if (ytVoiceActive) {
+            stopYtVoice();
+        } else {
+            startYtVoice();
+        }
+    }
+    window.toggleYtVoiceInput = toggleYtVoiceInput;
+
+    function startYtVoice() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            showToast('Voice input not supported in this browser', 'error');
+            return;
+        }
+
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        ytVoiceRecognition = new SpeechRecognition();
+        ytVoiceRecognition.continuous = true;
+        ytVoiceRecognition.interimResults = true;
+        ytVoiceRecognition.lang = 'en-US';
+
+        var finalTranscript = '';
+        var contextArea = document.getElementById('ytContext');
+
+        ytVoiceRecognition.onstart = function() {
+            ytVoiceActive = true;
+            var btn = document.getElementById('ytVoiceBtn');
+            btn.style.background = 'rgba(255, 50, 50, 0.3)';
+            btn.style.borderColor = '#ff4444';
+            btn.textContent = '⏹';
+            btn.title = 'Stop voice input';
+        };
+
+        ytVoiceRecognition.onresult = function(event) {
+            var interim = '';
+            for (var i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript + ' ';
+                } else {
+                    interim += event.results[i][0].transcript;
+                }
+            }
+            // Show final + interim in textarea
+            var existing = contextArea.value;
+            // Remove previous interim text (after last final)
+            var baseText = existing.substring(0, existing.length - (contextArea.dataset.interimLen || 0));
+            contextArea.value = baseText + finalTranscript + interim;
+            contextArea.dataset.interimLen = interim.length;
+            contextArea.scrollTop = contextArea.scrollHeight;
+        };
+
+        ytVoiceRecognition.onerror = function(event) {
+            if (event.error !== 'no-speech') {
+                showToast('Voice error: ' + event.error, 'error');
+            }
+            stopYtVoice();
+        };
+
+        ytVoiceRecognition.onend = function() {
+            // If still active, restart (continuous mode can stop unexpectedly)
+            if (ytVoiceActive) {
+                try { ytVoiceRecognition.start(); } catch(e) { stopYtVoice(); }
+            }
+        };
+
+        ytVoiceRecognition.start();
+    }
+
+    function stopYtVoice() {
+        ytVoiceActive = false;
+        if (ytVoiceRecognition) {
+            try { ytVoiceRecognition.stop(); } catch(e) {}
+            ytVoiceRecognition = null;
+        }
+        var btn = document.getElementById('ytVoiceBtn');
+        if (btn) {
+            btn.style.background = 'rgba(0,240,255,0.1)';
+            btn.style.borderColor = 'rgba(0,240,255,0.3)';
+            btn.textContent = '🎤';
+            btn.title = 'Voice input';
+        }
+        // Clear interim tracking
+        var contextArea = document.getElementById('ytContext');
+        if (contextArea) delete contextArea.dataset.interimLen;
+    }
 
     function downloadYouTube() {
         var url = document.getElementById('youtubeUrl').value.trim();
@@ -3904,10 +3998,14 @@
             return;
         }
 
+        // Stop voice input if active
+        if (ytVoiceActive) stopYtVoice();
+
         var analyze = document.getElementById('ytAnalyze').checked;
         var transcribe = document.getElementById('ytTranscribe').checked;
         var frames = parseInt(document.getElementById('ytFrames').value);
         var whisperModel = document.getElementById('ytWhisperModel').value;
+        var userContext = (document.getElementById('ytContext').value || '').trim();
 
         // Show progress
         var progressDiv = document.getElementById('ytProgress');
@@ -3974,7 +4072,14 @@
             renderVideos();
 
             // Build context message about the downloaded video
-            var contextParts = ['Downloaded YouTube video: "' + (data.title || 'Video') + '"'];
+            var contextParts = [];
+
+            // User's analysis instructions come first
+            if (userContext) {
+                contextParts.push('--- ANALYSIS INSTRUCTIONS ---\n' + userContext);
+            }
+
+            contextParts.push('Downloaded YouTube video: "' + (data.title || 'Video') + '"');
             contextParts.push('Duration: ' + (data.duration || 0) + ' seconds');
             contextParts.push('Path: ' + data.video_path);
 
